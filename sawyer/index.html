@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sawyer</title>
+<style>
+  :root { --bg:#1b1c20; --panel:#232428; --panel2:#2a2b30; --line:#36373d; --line2:#45464d; --fg:#e6e7ea; --dim:#9a9ca4; --accent:#4c9ef5; --accent2:#2f6fbd; --sel:#ffb03b; --video:#3b6fa8; --audio:#3f8f5f; --text:#8b5fbf; --img:#b07d3c; --danger:#d65252; --ok:#4cbf7a; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:12.5px/1.35 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow:hidden; user-select:none; -webkit-user-select:none; }
+  button, select, input { font:inherit; color:inherit; }
+  button { background:var(--panel2); border:1px solid var(--line2); border-radius:5px; padding:4px 9px; cursor:pointer; }
+  button:hover { background:#34353b; }
+  button.on { background:var(--accent2); border-color:var(--accent); }
+  button.primary { background:var(--accent2); border-color:var(--accent); font-weight:600; }
+  button.danger { border-color:var(--danger); color:#ffb4b4; }
+  button:disabled { opacity:.45; cursor:default; }
+  input[type=text], input[type=number], input[type=password], select, textarea { background:#151619; border:1px solid var(--line2); border-radius:4px; padding:4px 6px; color:var(--fg); }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  input[type=number] { width:74px; }
+  ::-webkit-scrollbar { width:10px; height:10px; } ::-webkit-scrollbar-thumb { background:#4a4b52; border-radius:5px; } ::-webkit-scrollbar-track { background:#1f2024; }
+
+  #app { display:grid; height:100%; grid-template-rows:34px 1fr 6px minmax(180px, 38%); grid-template-columns:1fr; }
+  #menubar { display:flex; align-items:center; gap:2px; padding:0 8px; background:var(--panel); border-bottom:1px solid var(--line); }
+  #menubar .brand { font-weight:800; letter-spacing:.06em; margin-right:12px; color:#fff; }
+  #menubar .brand span { color:var(--accent); }
+  .menu { position:relative; }
+  .menu > button { background:transparent; border:0; padding:5px 9px; }
+  .menu > button:hover, .menu.open > button { background:#34353b; }
+  .menu .dd { display:none; position:absolute; top:100%; left:0; min-width:230px; background:#2c2d33; border:1px solid var(--line2); border-radius:6px; padding:4px; z-index:50; box-shadow:0 10px 30px rgba(0,0,0,.5); }
+  .menu.open .dd { display:block; }
+  .dd button { display:flex; justify-content:space-between; width:100%; text-align:left; background:transparent; border:0; border-radius:4px; padding:6px 8px; }
+  .dd button:hover { background:var(--accent2); }
+  .dd button kbd { color:var(--dim); font:11px ui-monospace, Menlo, monospace; }
+  .dd hr { border:0; border-top:1px solid var(--line2); margin:4px 0; }
+  #menubar .spacer { flex:1; }
+  #status { color:var(--dim); font-size:11.5px; }
+
+  #top { display:grid; grid-template-columns:minmax(220px, 24%) 1fr minmax(260px, 27%); min-height:0; }
+  .panel { background:var(--panel); border-right:1px solid var(--line); display:flex; flex-direction:column; min-height:0; min-width:0; }
+  .panel:last-child { border-right:0; }
+  .tabs { display:flex; border-bottom:1px solid var(--line); background:#1f2024; }
+  .tabs button { background:transparent; border:0; border-radius:0; padding:7px 12px; color:var(--dim); border-bottom:2px solid transparent; }
+  .tabs button.on { color:var(--fg); border-bottom-color:var(--accent); }
+  .tabpage { display:none; flex:1; min-height:0; overflow:auto; }
+  .tabpage.on { display:flex; flex-direction:column; }
+
+  /* project bin */
+  #bin-tools { display:flex; gap:6px; padding:8px; border-bottom:1px solid var(--line); }
+  #bin { flex:1; overflow:auto; padding:6px; }
+  .media { display:grid; grid-template-columns:64px 1fr; gap:8px; align-items:center; padding:5px; border-radius:6px; cursor:grab; border:1px solid transparent; }
+  .media:hover { background:var(--panel2); }
+  .media.on { border-color:var(--accent); }
+  .media .th { width:64px; height:36px; background:#111; border-radius:3px; overflow:hidden; display:flex; align-items:center; justify-content:center; color:var(--dim); font-size:10px; }
+  .media .th img { width:100%; height:100%; object-fit:cover; }
+  .media .nm { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .media .meta { color:var(--dim); font-size:11px; }
+  #dropzone { border:1px dashed var(--line2); border-radius:8px; margin:8px; padding:18px; text-align:center; color:var(--dim); }
+  #dropzone.over { border-color:var(--accent); color:var(--fg); background:rgba(76,158,245,.08); }
+
+  /* monitor */
+  #monitor { background:#0f1013; display:flex; flex-direction:column; min-width:0; }
+  #stage { flex:1; display:flex; align-items:center; justify-content:center; min-height:0; padding:10px; position:relative; }
+  #program { max-width:100%; max-height:100%; background:#000; box-shadow:0 0 0 1px #000, 0 10px 40px rgba(0,0,0,.6); }
+  #transport { display:flex; align-items:center; gap:6px; padding:6px 10px; background:var(--panel); border-top:1px solid var(--line); }
+  #transport .tc { font:600 15px ui-monospace, Menlo, Consolas, monospace; color:#fff; letter-spacing:.04em; min-width:120px; }
+  #transport .tc.dim { color:var(--dim); font-weight:400; font-size:12px; min-width:0; }
+  #transport .grow { flex:1; }
+  .tbtn { min-width:34px; padding:5px 8px; font-size:13px; }
+  #stage-info { position:absolute; left:14px; top:14px; color:var(--dim); font-size:11px; background:rgba(0,0,0,.5); padding:2px 6px; border-radius:4px; }
+
+  /* inspector */
+  #inspector { padding:10px; gap:10px; }
+  .sec { border:1px solid var(--line); border-radius:6px; padding:8px 10px; }
+  .sec h4 { margin:0 0 8px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); display:flex; justify-content:space-between; }
+  .row { display:grid; grid-template-columns:78px 1fr 64px 22px; gap:6px; align-items:center; margin-bottom:6px; }
+  .row label { color:var(--dim); font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .row input[type=number] { width:100%; }
+  .kf { width:22px; height:22px; padding:0; font-size:11px; line-height:1; color:var(--dim); }
+  .kf.on { color:var(--sel); border-color:var(--sel); }
+  .row2 { display:grid; grid-template-columns:78px 1fr; gap:6px; align-items:center; margin-bottom:6px; }
+  .row2 input[type=text], .row2 select, .row2 textarea { width:100%; }
+  .hint { color:var(--dim); padding:14px; text-align:center; }
+  .fx-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:6px; padding:10px; }
+  .fx-grid button { text-align:left; }
+
+  /* AI panel */
+  #ai { padding:0; }
+  #ai-config { padding:8px 10px; border-bottom:1px solid var(--line); display:flex; flex-direction:column; gap:6px; }
+  #ai-config .line { display:flex; gap:6px; align-items:center; }
+  #ai-config input[type=password] { flex:1; }
+  #ai-log { flex:1; overflow:auto; padding:10px; display:flex; flex-direction:column; gap:8px; }
+  .msg { max-width:92%; padding:8px 10px; border-radius:10px; white-space:pre-wrap; word-break:break-word; line-height:1.4; }
+  .msg.user { align-self:flex-end; background:var(--accent2); }
+  .msg.ai { align-self:flex-start; background:var(--panel2); }
+  .msg.tool { align-self:flex-start; background:transparent; border:1px dashed var(--line2); color:var(--dim); font:11px ui-monospace, Menlo, monospace; padding:4px 8px; }
+  .msg.err { align-self:flex-start; background:#4a2626; }
+  #ai-input { display:flex; gap:6px; padding:8px 10px; border-top:1px solid var(--line); }
+  #ai-input textarea { flex:1; resize:none; height:56px; }
+  .chips { display:flex; flex-wrap:wrap; gap:4px; padding:0 10px 8px; }
+  .chips button { font-size:11px; padding:3px 8px; border-radius:12px; }
+
+  /* timeline */
+  #split { background:var(--line); cursor:row-resize; }
+  #timeline { display:grid; grid-template-rows:30px 1fr; background:#17181b; min-height:0; }
+  #tl-tools { display:flex; align-items:center; gap:6px; padding:0 8px; background:var(--panel); border-bottom:1px solid var(--line); border-top:1px solid var(--line); }
+  #tl-tools .tc { font:600 13px ui-monospace, Menlo, monospace; min-width:100px; }
+  #tl-body { display:grid; grid-template-columns:150px 1fr; min-height:0; overflow:hidden; }
+  #tl-heads { background:var(--panel); border-right:1px solid var(--line); overflow:hidden; }
+  #tl-scroll { overflow:auto; position:relative; }
+  #tl-content { position:relative; min-width:100%; }
+  #ruler { position:sticky; top:0; height:26px; background:#202126; border-bottom:1px solid var(--line); z-index:5; cursor:pointer; }
+  #ruler canvas { display:block; }
+  .head { height:56px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:4px; padding:0 8px; }
+  .head.audio { height:48px; }
+  .head.spacer { height:26px; background:#202126; }
+  .head .nm { font-weight:700; width:26px; }
+  .head button { padding:1px 5px; font-size:10.5px; min-width:22px; }
+  .head button.m.on { background:#7a3d3d; border-color:#c55; }
+  .head button.s.on { background:#7a6b2a; border-color:#dc5; }
+  .head button.l.on { background:#4a4a5a; border-color:#99a; }
+  .lane { position:relative; height:56px; border-bottom:1px solid var(--line); background-image:linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px); }
+  .lane.audio { height:48px; background-color:#161a17; }
+  .lane.video { background-color:#171a1f; }
+  .lane.over { background-color:rgba(76,158,245,.12); }
+  .clip { position:absolute; top:3px; bottom:3px; border-radius:4px; overflow:hidden; cursor:grab; border:1px solid rgba(0,0,0,.45); box-shadow:inset 0 0 0 1px rgba(255,255,255,.08); }
+  .clip.video { background:var(--video); } .clip.audio { background:var(--audio); } .clip.text { background:var(--text); } .clip.image { background:var(--img); }
+  .clip.selected { box-shadow:0 0 0 2px var(--sel), inset 0 0 0 1px rgba(255,255,255,.15); z-index:2; }
+  .clip.disabled { opacity:.4; }
+  .clip .lbl { position:absolute; left:6px; top:3px; right:6px; font-size:11px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 1px 2px rgba(0,0,0,.8); pointer-events:none; z-index:1; }
+  .clip .thumbs { position:absolute; inset:0; display:flex; opacity:.85; }
+  .clip .thumbs img { height:100%; width:auto; flex:none; }
+  .clip canvas.wave { position:absolute; inset:0; width:100%; height:100%; }
+  .clip .h { position:absolute; top:0; bottom:0; width:8px; cursor:ew-resize; z-index:3; }
+  .clip .h.l { left:0; } .clip .h.r { right:0; }
+  .clip .h:hover { background:rgba(255,255,255,.25); }
+  .clip .tr { position:absolute; bottom:0; height:100%; width:0; background:repeating-linear-gradient(135deg, rgba(255,255,255,.35) 0 3px, transparent 3px 7px); pointer-events:none; }
+  .clip .tr.in { left:0; } .clip .tr.out { right:0; }
+  .clip .kfm { position:absolute; bottom:2px; left:6px; font-size:9px; color:var(--sel); pointer-events:none; }
+  #playhead { position:absolute; top:0; bottom:0; width:0; border-left:2px solid #ff4d4d; z-index:6; pointer-events:none; }
+  #playhead::before { content:""; position:absolute; top:0; left:-7px; border:6px solid transparent; border-top:10px solid #ff4d4d; }
+  #inout { position:absolute; top:0; height:26px; background:rgba(76,158,245,.25); border-left:2px solid var(--accent); border-right:2px solid var(--accent); z-index:4; pointer-events:none; }
+  .marker { position:absolute; top:16px; width:10px; height:10px; background:#4cbf7a; transform:translateX(-5px) rotate(45deg); z-index:5; cursor:pointer; }
+  #tl-scroll.razor { cursor:crosshair; }
+  #snapline { position:absolute; top:0; bottom:0; border-left:1px dashed var(--sel); z-index:7; pointer-events:none; display:none; }
+
+  /* dialogs */
+  #modal { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:100; }
+  #modal[hidden] { display:none; }
+  .dlg { background:#26272c; border:1px solid var(--line2); border-radius:10px; width:min(560px, 94vw); max-height:90vh; overflow:auto; padding:18px 20px; box-shadow:0 30px 80px rgba(0,0,0,.7); }
+  .dlg h2 { margin:0 0 12px; font-size:16px; }
+  .dlg .row2 { grid-template-columns:120px 1fr; }
+  .dlg .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
+  .progress { height:8px; background:#111; border-radius:4px; overflow:hidden; margin:10px 0 6px; }
+  .progress i { display:block; height:100%; background:var(--accent); width:0; transition:width .2s; }
+  .kbd-table { width:100%; border-collapse:collapse; } .kbd-table td { padding:3px 6px; border-bottom:1px solid var(--line); } .kbd-table kbd { font:11px ui-monospace, Menlo, monospace; background:#111; padding:1px 5px; border-radius:3px; border:1px solid var(--line2); }
+  #toasts { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); display:flex; flex-direction:column; gap:6px; z-index:200; pointer-events:none; }
+  .toast { background:#2c2d33; border:1px solid var(--line2); border-left:3px solid var(--accent); padding:8px 14px; border-radius:6px; font-size:12.5px; box-shadow:0 8px 24px rgba(0,0,0,.5); }
+  .toast.err { border-left-color:var(--danger); }
+  @media (max-width: 900px) {
+    #top { grid-template-columns:1fr; grid-template-rows:auto 1fr auto; }
+    #app { grid-template-rows:34px 1fr 6px 40%; }
+    .panel { border-right:0; border-bottom:1px solid var(--line); max-height:34vh; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="menubar">
+    <div class="brand">SAW<span>YER</span></div>
+    <div class="menu"><button>File</button><div class="dd">
+      <button data-cmd="new">New project</button>
+      <button data-cmd="open">Open project (.sawyer.json)…</button>
+      <button data-cmd="saveas">Save project as…<kbd>Ctrl+S</kbd></button>
+      <hr>
+      <button data-cmd="import">Import media…<kbd>Ctrl+I</kbd></button>
+      <button data-cmd="export">Export…<kbd>Ctrl+M</kbd></button>
+    </div></div>
+    <div class="menu"><button>Edit</button><div class="dd">
+      <button data-cmd="undo">Undo<kbd>Ctrl+Z</kbd></button>
+      <button data-cmd="redo">Redo<kbd>Ctrl+Shift+Z</kbd></button>
+      <hr>
+      <button data-cmd="copy">Copy<kbd>Ctrl+C</kbd></button>
+      <button data-cmd="paste">Paste at playhead<kbd>Ctrl+V</kbd></button>
+      <button data-cmd="dup">Duplicate<kbd>Ctrl+D</kbd></button>
+      <hr>
+      <button data-cmd="split">Split at playhead<kbd>Ctrl+K</kbd></button>
+      <button data-cmd="delete">Delete<kbd>Del</kbd></button>
+      <button data-cmd="ripple">Ripple delete<kbd>Shift+Del</kbd></button>
+      <button data-cmd="closegaps">Close all gaps</button>
+      <button data-cmd="selectall">Select all<kbd>Ctrl+A</kbd></button>
+      <hr>
+      <button data-cmd="unlink">Unlink / link audio<kbd>Ctrl+L</kbd></button>
+      <button data-cmd="toggle">Enable / disable clip<kbd>Shift+E</kbd></button>
+    </div></div>
+    <div class="menu"><button>Sequence</button><div class="dd">
+      <button data-cmd="settings">Sequence settings…</button>
+      <button data-cmd="addtext">Add title at playhead<kbd>Ctrl+T</kbd></button>
+      <button data-cmd="marker">Add marker<kbd>M</kbd></button>
+      <button data-cmd="markin">Mark in<kbd>I</kbd></button>
+      <button data-cmd="markout">Mark out<kbd>O</kbd></button>
+      <button data-cmd="clearinout">Clear in/out<kbd>Ctrl+Shift+X</kbd></button>
+    </div></div>
+    <div class="menu"><button>Help</button><div class="dd">
+      <button data-cmd="shortcuts">Keyboard shortcuts<kbd>?</kbd></button>
+      <button data-cmd="about">About Sawyer</button>
+    </div></div>
+    <div class="spacer"></div>
+    <div id="status">Ready</div>
+  </div>
+
+  <div id="top">
+    <div class="panel" id="left">
+      <div class="tabs"><button class="on" data-tab="bin">Project</button><button data-tab="fx">Effects</button></div>
+      <div class="tabpage on" data-page="bin">
+        <div id="bin-tools"><button class="primary" data-cmd="import">Import…</button><button data-cmd="addtext">New title</button><input type="file" id="file-input" multiple accept="video/*,audio/*,image/*" hidden></div>
+        <div id="bin"></div>
+        <div id="dropzone">Drop video, audio or images here<br><small>MP4, WebM, MOV, MP3, WAV, PNG, JPG…</small></div>
+      </div>
+      <div class="tabpage" data-page="fx">
+        <div class="hint">Select a clip, then apply. Transitions attach to the clip's start or end and to its neighbour.</div>
+        <div class="fx-grid" id="fx-grid"></div>
+      </div>
+    </div>
+
+    <div id="monitor">
+      <div id="stage"><canvas id="program" width="1920" height="1080"></canvas><div id="stage-info"></div></div>
+      <div id="transport">
+        <span class="tc" id="tc">00:00:00:00</span>
+        <button class="tbtn" data-cmd="home" title="Go to start (Home)">⏮</button>
+        <button class="tbtn" data-cmd="stepback" title="Step back (←)">◀︎</button>
+        <button class="tbtn primary" data-cmd="playpause" id="btn-play" title="Play / pause (Space)">▶</button>
+        <button class="tbtn" data-cmd="stepfwd" title="Step forward (→)">▶︎</button>
+        <button class="tbtn" data-cmd="end" title="Go to end (End)">⏭</button>
+        <button class="tbtn" data-cmd="markin" title="Mark in (I)">{</button>
+        <button class="tbtn" data-cmd="markout" title="Mark out (O)">}</button>
+        <button class="tbtn" data-cmd="loop" id="btn-loop" title="Loop in/out range">↻</button>
+        <span class="grow"></span>
+        <span class="tc dim" id="tc-dur">00:00:00:00</span>
+        <button data-cmd="export" class="primary">Export</button>
+      </div>
+    </div>
+
+    <div class="panel" id="right">
+      <div class="tabs"><button class="on" data-tab="inspector">Effect Controls</button><button data-tab="ai">AI Assistant</button></div>
+      <div class="tabpage on" data-page="inspector" id="inspector"><div class="hint">Select a clip to edit its motion, opacity, audio, colour and text.</div></div>
+      <div class="tabpage" data-page="ai" id="ai">
+        <div id="ai-config">
+          <div class="line"><strong>Backend</strong><select id="ai-backend"><option value="auto">Auto</option><option value="sample">Claude (built in, artifact only)</option><option value="api">Anthropic API key</option></select><span id="ai-status" style="color:var(--dim)"></span></div>
+          <div class="line" id="ai-key-line"><input type="password" id="ai-key" placeholder="sk-ant-… (stored only in this browser)"><select id="ai-model"><option value="claude-opus-5">claude-opus-5</option><option value="claude-sonnet-5">claude-sonnet-5</option><option value="claude-haiku-4-5">claude-haiku-4-5</option></select></div>
+        </div>
+        <div id="ai-log"><div class="msg ai">Hi. Tell me what to do with the timeline: "cut the silence out of the interview", "add a title that says Welcome for the first 3 seconds", "make clip 2 black and white and fade it out", "speed up the second half 2×". I edit with tools you can undo.</div></div>
+        <div class="chips">
+          <button data-prompt="Remove the silent parts from the longest clip with audio.">Remove silence</button>
+          <button data-prompt="Add a big white title with the project name for the first 3 seconds, fading in over half a second.">Title card</button>
+          <button data-prompt="Add a 1 second cross dissolve between every pair of adjacent clips on V1.">Dissolves everywhere</button>
+          <button data-prompt="Give me a 30 second cut: keep the most useful parts and close the gaps.">30 s cut</button>
+        </div>
+        <div id="ai-input"><textarea id="ai-text" placeholder="Describe the edit… (Enter to send, Shift+Enter for a new line)"></textarea><button class="primary" id="ai-send">Send</button><button id="ai-stop" hidden>Stop</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="split"></div>
+
+  <div id="timeline">
+    <div id="tl-tools">
+      <span class="tc" id="tc2">00:00:00:00</span>
+      <button class="on" data-tool="select" title="Selection tool (V)">▲ Select</button>
+      <button data-tool="razor" title="Razor tool (C)">✂ Razor</button>
+      <button data-cmd="split" title="Split at playhead (Ctrl+K)">Split</button>
+      <button data-cmd="ripple" title="Ripple delete (Shift+Del)">Ripple</button>
+      <button data-cmd="snap" id="btn-snap" class="on" title="Snapping (S)">Snap</button>
+      <span class="grow" style="flex:1"></span>
+      <button data-cmd="zoomout" title="Zoom out (-)">−</button>
+      <input type="range" id="zoom" min="0" max="100" value="40" style="width:120px">
+      <button data-cmd="zoomin" title="Zoom in (+)">+</button>
+      <button data-cmd="zoomfit" title="Fit sequence (\\)">Fit</button>
+    </div>
+    <div id="tl-body">
+      <div id="tl-heads"></div>
+      <div id="tl-scroll">
+        <div id="tl-content">
+          <div id="ruler"><canvas></canvas><div id="inout" hidden></div></div>
+          <div id="lanes"></div>
+          <div id="playhead"></div>
+          <div id="snapline"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toasts"></div>
+<div id="modal" hidden></div>
+<script src="vendor/mp4-muxer.js"></script>
+<script src="vendor/webm-muxer.js"></script>
+<script type="module" src="src/app.js"></script>
+</body>
+</html>

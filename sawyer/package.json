@@ -1,0 +1,12 @@
+{
+  "name": "sawyer",
+  "version": "0.1.0",
+  "description": "An open-source non-linear video editor that runs in the browser: multi-track timeline, real video decode, effects with keyframes, transitions, audio mixing, MP4/WebM export with WebCodecs, and an AI editing assistant.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "build": "node scripts/build.mjs",
+    "serve": "python3 -m http.server 8081"
+  }
+}
