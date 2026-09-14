@@ -4,7 +4,7 @@ import { state } from './core/state.js';
 import { bus } from './core/bus.js';
 import cityData from './data/city.js';
 import { City } from './world/city.js';
-import { CHARACTERS, createCharacterRig, createNpcRig } from './entities/characters.js';
+import { CHARACTERS, createCharacterRig, createNpcRig, NPC_PRESETS } from './entities/characters.js';
 import { PlayerController, attachInput } from './player/controller.js';
 import { updateAbilities, spawnProps } from './abilities.js';
 import { EnemyManager } from './enemies.js';
@@ -64,7 +64,7 @@ export async function boot() {
   const charDefs = Object.fromEntries(state.roster.map(id => [id, CHARACTERS[id]]));
   attachInput(state, canvas);
   const player = new PlayerController(state, world, rigs, camera, canvas, { charDefs });
-  const enemies = new EnemyManager(scene, city, createNpcRig);
+  const enemies = new EnemyManager(scene, city, createNpcRig, { thugPreset: NPC_PRESETS.thug });
   state.enemyManager = enemies;
   const vfx = new VFX(scene);
   const audio = new Audio(state, bus);
@@ -95,12 +95,13 @@ export async function boot() {
 
   // ---------- phases ----------
   const jp = carrier.jumpPoint;
-  const startOnDeck = () => {
+  const startOnDeck = (announce = true) => {
     world.onDeck = true;
-    player.teleport(jp.x - 40, jp.z);
+    const b = carrier.deckBounds; const sx = Math.min(Math.max(jp.x, b.minX + 4), b.maxX - 4); const sz = Math.min(Math.max(jp.z + 60, b.minZ + 4), b.maxZ - 4);
+    player.teleport(sx, sz);
     state.player.pos.y = carrier.deckY; state.player.vel.set(0, 0, 0);
     state.phase = 'deck'; bus.emit('phase', { phase: 'deck' });
-    hud.toast?.('Walk to the bow and press E (or step off) to jump');
+    if (announce) hud.toast?.('Walk to the bow and press E (or step off) to jump');
   };
   const playIntro = async () => {
     state.phase = 'dialog'; bus.emit('phase', { phase: 'dialog' });
@@ -123,10 +124,12 @@ export async function boot() {
     audio.setMusic?.('explore');
     bus.emit('toast', { text: 'Steer with WASD. Land on the courthouse square.' });
   };
-  bus.on('phase', ({ phase }) => { if (phase === 'play' && !missions.current?.()) { missions.start('m1'); } });
+  bus.on('phase', ({ phase }) => { if (phase === 'play') { const c = missions.current?.(); if (!c || !c.mission) missions.start('m1'); } });
   const startGame = () => {
+    if (state._started) return; state._started = true;
     audio.resume?.(); audio.setMusic?.('title');
-    startOnDeck();
+    hud.hideTitle?.();
+    startOnDeck(false);
     state.phase = 'dialog';
     playIntro();
   };

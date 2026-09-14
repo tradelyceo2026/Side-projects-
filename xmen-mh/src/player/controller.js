@@ -13,10 +13,8 @@ import { bus } from '../core/bus.js';
 // abilities.js and combat.js are authored in parallel (Agent E). Import them defensively
 // so the controller — and its node tests — load even before those modules exist. The
 // interfaces used are exactly the ones in docs/SPEC.md.
-let _abilities = null;
-let _combat = null;
-try { _abilities = await import('../abilities.js'); } catch (e) { _abilities = null; }
-try { _combat = await import('../combat.js'); } catch (e) { _combat = null; }
+import * as _abilities from '../abilities.js';
+import * as _combat from '../combat.js';
 function callUseAbility(state, name, ctx) {
   if (_abilities && typeof _abilities.useAbility === 'function') return !!_abilities.useAbility(state, name, ctx);
   return false;

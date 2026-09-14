@@ -263,7 +263,7 @@ export class Audio {
     filter.frequency.exponentialRampToValueAtTime(2000, this.ctx.currentTime + 0.3);
 
     envGain.gain.setValueAtTime(gain, this.ctx.currentTime);
-    envGain.gain.exponentialRampToValueAtTime(0, this.ctx.currentTime + 0.3);
+    envGain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.3);
 
     source.buffer = buffer;
     source.connect(filter);
@@ -290,7 +290,7 @@ export class Audio {
     osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.15);
 
     envGain.gain.setValueAtTime(gain * 0.3, this.ctx.currentTime);
-    envGain.gain.exponentialRampToValueAtTime(0, this.ctx.currentTime + 0.15);
+    envGain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.15);
 
     osc.connect(filter);
     filter.connect(envGain);
@@ -312,7 +312,7 @@ export class Audio {
     osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.2);
 
     envGain.gain.setValueAtTime(gain * 0.4 * impact, this.ctx.currentTime);
-    envGain.gain.exponentialRampToValueAtTime(0, this.ctx.currentTime + 0.2);
+    envGain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.2);
 
     osc.connect(envGain);
     envGain.connect(this.sfxGain);
@@ -334,7 +334,7 @@ export class Audio {
       osc.frequency.setValueAtTime(200, this.ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(60, this.ctx.currentTime + 0.1);
       envGain.gain.setValueAtTime(gain * 0.3, this.ctx.currentTime);
-      envGain.gain.exponentialRampToValueAtTime(0, this.ctx.currentTime + 0.1);
+      envGain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.1);
       osc.connect(envGain);
       envGain.connect(this.sfxGain);
       osc.start();
@@ -351,7 +351,7 @@ export class Audio {
       osc.frequency.setValueAtTime(600, this.ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.08);
       envGain.gain.setValueAtTime(gain * 0.4, this.ctx.currentTime);
-      envGain.gain.exponentialRampToValueAtTime(0, this.ctx.currentTime + 0.08);
+      envGain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.08);
       osc.connect(filter);
       filter.connect(envGain);
       envGain.connect(this.sfxGain);
@@ -366,7 +366,7 @@ export class Audio {
       sub.frequency.setValueAtTime(80, this.ctx.currentTime);
       sub.frequency.exponentialRampToValueAtTime(20, this.ctx.currentTime + 0.3);
       subGain.gain.setValueAtTime(gain * 0.5, this.ctx.currentTime);
-      subGain.gain.exponentialRampToValueAtTime(0, this.ctx.currentTime + 0.3);
+      subGain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.3);
       sub.connect(subGain);
       subGain.connect(this.sfxGain);
       sub.start();
@@ -393,7 +393,7 @@ export class Audio {
     filter.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.4);
 
     envGain.gain.setValueAtTime(gain * 0.7, this.ctx.currentTime);
-    envGain.gain.exponentialRampToValueAtTime(0, this.ctx.currentTime + 0.4);
+    envGain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.4);
 
     source.buffer = buffer;
     source.connect(filter);
@@ -470,7 +470,7 @@ export class Audio {
     osc.frequency.setValueAtTime(800, this.ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.05);
     envGain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-    envGain.gain.exponentialRampToValueAtTime(0, this.ctx.currentTime + 0.05);
+    envGain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.05);
     osc.connect(envGain);
     envGain.connect(this.sfxGain);
     osc.start();
@@ -488,7 +488,7 @@ export class Audio {
     osc1.frequency.setValueAtTime(800, this.ctx.currentTime);
     osc2.frequency.setValueAtTime(1200, this.ctx.currentTime);
     envGain.gain.setValueAtTime(0.25, this.ctx.currentTime);
-    envGain.gain.exponentialRampToValueAtTime(0, this.ctx.currentTime + 0.1);
+    envGain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.1);
     osc1.connect(envGain);
     osc2.connect(envGain);
     envGain.connect(this.sfxGain);
@@ -511,7 +511,7 @@ export class Audio {
         osc.type = 'sine';
         osc.frequency.value = freq;
         envGain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-        envGain.gain.exponentialRampToValueAtTime(0, this.ctx.currentTime + 0.15);
+        envGain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.15);
         osc.connect(envGain);
         envGain.connect(this.sfxGain);
         osc.start();
@@ -707,7 +707,7 @@ export class Audio {
 
     source.playbackRate.value = speed;
     envGain.gain.setValueAtTime(0.2 * attenuation, this.ctx.currentTime);
-    envGain.gain.exponentialRampToValueAtTime(0, this.ctx.currentTime + 0.1);
+    envGain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.1);
 
     source.buffer = buffer;
     source.connect(filter);

@@ -206,7 +206,8 @@ export function installPlayerDamageHook(mod) {
   return false;
 }
 // Best effort: wire ourselves up when enemies.js is present, so goon hits respect diamond form.
-import('./enemies.js').then(installPlayerDamageHook).catch(() => {});
+import { onPlayerDamage as _onPlayerDamage } from './enemies.js';
+try { installPlayerDamageHook({ onPlayerDamage: _onPlayerDamage }); } catch (e) { /* optional */ }
 
 /* ------------------------------------------------------------------ bleed (claws) */
 
