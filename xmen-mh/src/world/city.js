@@ -1576,3 +1576,282 @@ export class City {
     this.xSign = mesh;
     this.xSignPos = new THREE.Vector3(ex, boardY, ez);
   }
+
+  /* ---------------- scatter helpers ---------------- */
+
+  /** True when (x,z) is on a road surface or inside a building footprint. */
+  _blocked(x, z, margin = 1.0) {
+    const near = this.roadGrid.queryPoint(x, z, this._q2);
+    for (let i = 0; i < near.length; i++) {
+      const s = near[i];
+      if ((s.x - x) ** 2 + (s.z - z) ** 2 < (s.width * 0.5 + margin + 1.5) ** 2) return true;
+    }
+    const b = this.buildingGrid.queryPoint(x, z, this._q3);
+    for (let i = 0; i < b.length; i++) {
+      const r = b[i];
+      if (x > r.minX - margin && x < r.maxX + margin && z > r.minZ - margin && z < r.maxZ + margin) return true;
+    }
+    return false;
+  }
+
+  _inBounds(x, z) {
+    return x > this.bounds.minX && x < this.bounds.maxX && z > this.bounds.minZ && z < this.bounds.maxZ;
+  }
+
+  _inWater(x, z) {
+    for (let i = 0; i < this.waterBodies.length; i++) {
+      const w = this.waterBodies[i];
+      if (x < w.bounds.minX || x > w.bounds.maxX || z < w.bounds.minZ || z > w.bounds.maxZ) continue;
+      if (pointInPolygon(x, z, w.poly)) return true;
+    }
+    return false;
+  }
+
+  _instance(geom, material, list, name, chunk = null) {
+    if (!list.length) return null;
+    const im = new THREE.InstancedMesh(geom, material, list.length);
+    im.name = name;
+    im.castShadow = false;
+    im.receiveShadow = true;
+    const q = this._qTmp, s = this._sTmp, v = this._vTmp, m = this._mTmp;
+    for (let i = 0; i < list.length; i++) {
+      const t = list[i];
+      q.setFromAxisAngle(UP_AXIS, t.yaw || 0);
+      s.set(t.sx ?? t.s ?? 1, t.sy ?? t.s ?? 1, t.sz ?? t.s ?? 1);
+      v.set(t.x, t.y, t.z);
+      m.compose(v, q, s);
+      im.setMatrixAt(i, m);
+      if (t.color) im.setColorAt(i, this._cTmp.setRGB(t.color[0], t.color[1], t.color[2]));
+    }
+    im.instanceMatrix.needsUpdate = true;
+    if (im.instanceColor) im.instanceColor.needsUpdate = true;
+    im.computeBoundingSphere();
+    this.group.add(im);
+    this.meshes.push(im);
+    this.stats.draws++;
+    const tris = (geom.index ? geom.index.count : geom.getAttribute('position').count) / 3;
+    this.stats.triangles += tris * list.length;
+    if (chunk) this.treeChunks.push({ mesh: im, cx: chunk.cx, cz: chunk.cz });
+    return im;
+  }
+
+  /* ---------------- trees ---------------- */
+
+  _treeGeometry(species) {
+    const mb = new MeshBuilder(true);
+    const TRUNK = [0.33, 0.25, 0.17];
+    const trs = (x, y, z, sx, sy, sz) => new THREE.Matrix4()
+      .makeTranslation(x, y, z).multiply(new THREE.Matrix4().makeScale(sx, sy, sz));
+    if (species === 0) {                              // white oak
+      const trunk = new THREE.CylinderGeometry(0.17, 0.28, 3.6, 6, 1);
+      appendGeometry(mb, trunk, trs(0, 1.8, 0, 1, 1, 1), TRUNK);
+      trunk.dispose();
+      const blob = new THREE.IcosahedronGeometry(2.6, 0);
+      appendGeometry(mb, blob, trs(0, 5.0, 0, 1.05, 0.82, 1.05), [0.29, 0.45, 0.21]);
+      appendGeometry(mb, blob, trs(1.1, 6.1, -0.5, 0.62, 0.55, 0.62), [0.33, 0.50, 0.24]);
+      appendGeometry(mb, blob, trs(-1.0, 5.6, 0.7, 0.55, 0.48, 0.55), [0.25, 0.40, 0.19]);
+      blob.dispose();
+    } else {                                          // shortleaf pine
+      const trunk = new THREE.CylinderGeometry(0.13, 0.24, 2.6, 6, 1);
+      appendGeometry(mb, trunk, trs(0, 1.3, 0, 1, 1, 1), TRUNK);
+      trunk.dispose();
+      const cone = new THREE.ConeGeometry(1.0, 1.0, 7, 1);
+      appendGeometry(mb, cone, trs(0, 4.6, 0, 2.0, 5.6, 2.0), [0.17, 0.32, 0.21]);
+      appendGeometry(mb, cone, trs(0, 7.6, 0, 1.35, 3.8, 1.35), [0.20, 0.36, 0.23]);
+      cone.dispose();
+    }
+    return mb.toGeometry();
+  }
+
+  _buildTrees() {
+    const budget = this.opts.treeCount ?? (this.opts.treeBudget[this.quality] ?? 2000);
+    if (budget <= 0) return;
+    const rng = makeRng(this.opts.seed + 4242);
+    const spots = [];
+
+    // 1. green areas (forest densest, then park, then plain grass)
+    const density = { forest: 1 / 170, park: 1 / 420, grass: 1 / 900 };
+    for (const g of (this.greens || [])) {
+      const want = Math.min(900, Math.floor(g.area * (density[g.kind] ?? density.grass)));
+      let tries = 0;
+      for (let made = 0; made < want && tries < want * 8; tries++) {
+        const x = lerp(g.bounds.minX, g.bounds.maxX, rng());
+        const z = lerp(g.bounds.minZ, g.bounds.maxZ, rng());
+        if (!pointInPolygon(x, z, g.poly)) continue;
+        if (this._inWater(x, z) || this._blocked(x, z, 1.5)) continue;
+        spots.push({ x, z, species: g.kind === 'forest' ? (rng() < 0.55 ? 1 : 0) : (rng() < 0.25 ? 1 : 0) });
+        made++;
+      }
+    }
+
+    // 2. street trees / residential yards
+    for (const road of this.roads) {
+      if (road.cls !== 'residential' && road.cls !== 'tertiary') continue;
+      for (let i = 0; i < road.samples.length; i++) {
+        if (rng() > 0.42) continue;
+        const s = road.samples[i];
+        const side = rng() < 0.5 ? -1 : 1;
+        const off = road.width * 0.5 + 5 + rng() * 9;
+        const nb = road.samples[Math.min(i + 1, road.samples.length - 1)];
+        let dx = nb.x - s.x, dz = nb.z - s.z;
+        const L = Math.hypot(dx, dz) || 1;
+        dx /= L; dz /= L;
+        const x = s.x + dz * off * side, z = s.z - dx * off * side;
+        if (!this._inBounds(x, z) || this._inWater(x, z) || this._blocked(x, z, 1.5)) continue;
+        spots.push({ x, z, species: rng() < 0.3 ? 1 : 0 });
+      }
+    }
+
+    // 3. fill the countryside outside the built-up area
+    const hillWant = Math.max(0, Math.floor(budget * 0.35) - spots.length * 0);
+    for (let i = 0, made = 0; made < hillWant && i < hillWant * 6; i++) {
+      const x = lerp(this.bounds.minX, this.bounds.maxX, rng());
+      const z = lerp(this.bounds.minZ, this.bounds.maxZ, rng());
+      if (Math.hypot(x, z) < 420) continue;
+      if (this._inWater(x, z) || this._blocked(x, z, 3)) continue;
+      spots.push({ x, z, species: rng() < 0.5 ? 1 : 0 });
+      made++;
+    }
+
+    // trim to budget, then bucket into chunks for distance culling
+    for (let i = spots.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      const t = spots[i]; spots[i] = spots[j]; spots[j] = t;
+    }
+    spots.length = Math.min(spots.length, budget);
+
+    const cs = this.opts.treeChunk;
+    const chunks = new Map();
+    for (const sp of spots) {
+      const cx = Math.floor(sp.x / cs), cz = Math.floor(sp.z / cs);
+      const key = cx + ',' + cz + ',' + sp.species;
+      let c = chunks.get(key);
+      if (!c) {
+        c = { cx: (cx + 0.5) * cs, cz: (cz + 0.5) * cs, species: sp.species, list: [] };
+        chunks.set(key, c);
+      }
+      const s = 0.75 + rng() * 0.65;
+      c.list.push({ x: sp.x, y: this.getGroundHeight(sp.x, sp.z) - 0.15, z: sp.z, yaw: rng() * Math.PI * 2, s });
+    }
+    const geoms = [this._treeGeometry(0), this._treeGeometry(1)];
+    this._treeGeoms = geoms;
+    for (const c of chunks.values()) {
+      this._instance(geoms[c.species], this.materials.tree, c.list, 'trees', c);
+      this.stats.trees += c.list.length;
+    }
+  }
+
+  /* ---------------- street lamps ---------------- */
+
+  _buildLamps() {
+    if (this.quality === 'low') return;
+    const posts = [], heads = [];
+    let flip = 0;
+    for (const road of this.roads) {
+      if (!road.spec.lamps) continue;
+      const stride = Math.max(1, Math.round(40 / this.opts.roadSampleStep));
+      for (let i = 1; i < road.samples.length - 1; i += stride) {
+        const s = road.samples[i], nb = road.samples[i + 1] || road.samples[i - 1];
+        let dx = nb.x - s.x, dz = nb.z - s.z;
+        const L = Math.hypot(dx, dz) || 1;
+        dx /= L; dz /= L;
+        const side = (flip++ % 2) ? 1 : -1;
+        const off = road.width * 0.5 + 1.8;
+        const x = s.x + dz * off * side, z = s.z - dx * off * side;
+        if (!this._inBounds(x, z)) continue;
+        const yaw = Math.atan2(-dz * side, dx * side);
+        posts.push({ x, y: s.y, z, yaw, s: 1 });
+        heads.push({ x: x + dz * -1.35 * side, y: s.y + 7.85, z: z + dx * 1.35 * side, yaw, s: 1 });
+      }
+    }
+    if (!posts.length) return;
+    const mb = new MeshBuilder(true);
+    const GREY = [0.34, 0.35, 0.37];
+    const post = new THREE.CylinderGeometry(0.085, 0.13, 8, 6, 1);
+    appendGeometry(mb, post, new THREE.Matrix4().makeTranslation(0, 4, 0), GREY);
+    post.dispose();
+    mb.addBox(0, 8.0, -0.7, 0.12, 0.12, 1.6, GREY, 1);
+    mb.addBox(0, 7.86, -1.35, 0.34, 0.22, 0.7, GREY, 1);
+    this._instance(mb.toGeometry(), this.materials.lamp, posts, 'street-lamps');
+    const glass = new THREE.BoxGeometry(0.3, 0.1, 0.6);
+    this._instance(glass, this.materials.lampGlass, heads, 'street-lamp-glass');
+    this.stats.lamps = posts.length;
+  }
+
+  /* ---------------- parked cars ---------------- */
+
+  _buildCars() {
+    if (this.quality === 'low') return;
+    const rng = makeRng(this.opts.seed + 909);
+    const palette = [
+      [0.82, 0.82, 0.84], [0.12, 0.13, 0.15], [0.60, 0.13, 0.13], [0.16, 0.28, 0.50],
+      [0.36, 0.40, 0.35], [0.72, 0.68, 0.58], [0.20, 0.42, 0.32],
+    ];
+    const cars = [];
+    const push = (x, z, yaw, y) => {
+      if (!this._inBounds(x, z) || this._inWater(x, z)) return;
+      cars.push({ x, y, z, yaw, s: 1, color: palette[Math.floor(rng() * palette.length)] });
+    };
+
+    // kerbside parking along the slower roads
+    for (const road of this.roads) {
+      if (!road.spec.parking) continue;
+      const stride = Math.max(1, Math.round(11 / this.opts.roadSampleStep));
+      for (let i = 1; i < road.samples.length - 1; i += stride) {
+        if (rng() > 0.34) continue;
+        const s = road.samples[i], nb = road.samples[i + 1];
+        let dx = nb.x - s.x, dz = nb.z - s.z;
+        const L = Math.hypot(dx, dz) || 1;
+        dx /= L; dz /= L;
+        const side = rng() < 0.5 ? -1 : 1;
+        const off = road.width * 0.5 - 1.3;
+        push(s.x + dz * off * side, s.z - dx * off * side, Math.atan2(dx, dz), s.y + 0.06);
+      }
+    }
+    // lots beside the big-box stores, the hospital and the campus
+    for (const b of this.buildings) {
+      if (b.area < 700) continue;
+      const rows = b.area > 3000 ? 3 : 2;
+      const y0 = b.padY;
+      for (let r = 0; r < rows; r++) {
+        const z = b.maxZ + 7 + r * 6.5;
+        for (let x = b.minX + 2; x < b.maxX - 2; x += 3.0) {
+          if (rng() > 0.6) continue;
+          if (this._blocked(x, z, 0.4)) continue;
+          push(x, z, 0, y0 + 0.06);
+        }
+      }
+    }
+    if (!cars.length) return;
+    const mb = new MeshBuilder(true);
+    mb.addBox(0, 0.62, 0, 1.85, 0.72, 4.25, [1, 1, 1], 2);          // body (tinted per instance)
+    mb.addBox(0, 1.22, -0.25, 1.62, 0.66, 2.15, [0.30, 0.34, 0.38], 2);  // cabin
+    for (const [wx, wz] of [[-0.85, 1.35], [0.85, 1.35], [-0.85, -1.35], [0.85, -1.35]]) {
+      mb.addBox(wx, 0.32, wz, 0.24, 0.62, 0.62, [0.07, 0.07, 0.08], 1);
+    }
+    this._instance(mb.toGeometry(), this.materials.car, cars, 'parked-cars');
+    this.stats.cars = cars.length;
+  }
+}
+
+const UP_AXIS = new THREE.Vector3(0, 1, 0);
+
+/* ================================================================== *
+ * 9. convenience
+ * ================================================================== */
+
+/** Build a City from a parsed city.json and add it to the scene. */
+export function buildCityFromJson(scene, json, opts = {}) {
+  const city = new City(scene, json, opts);
+  city.build();
+  return city;
+}
+
+/** Fetch src/data/city.json and build. Browser-only (uses fetch). */
+export async function loadCity(scene, url = '../data/city.json', opts = {}) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('city.json load failed: ' + res.status);
+  return buildCityFromJson(scene, await res.json(), opts);
+}
+
+export default City;

@@ -967,7 +967,9 @@ export class PlayerController {
     const fired = callUseAbility(st, name, ctx);
     if (fired) {
       const r = this.rig; if (r && r.setAnim) r.setAnim('ability', { name });
-      bus.emit('ability', { character: p.character, name, pos: p.pos.clone(), dir: ctx.dir });
+      // abilities.js emits the 'ability' event itself; only announce it here when that
+      // module is missing, so VFX/audio never hear the same cast twice.
+      if (!_abilities) bus.emit('ability', { character: p.character, name, pos: p.pos.clone(), dir: ctx.dir });
     }
     return fired;
   }

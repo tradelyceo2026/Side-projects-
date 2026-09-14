@@ -587,7 +587,11 @@ async function main() {
       )}).`
     );
   } else {
-    const [x, z] = project(36.322, -92.391);
+    // No amenity=university/college feature is tagged in the fetched OSM data (the
+    // campus buildings appear untagged beyond plain `building=yes`). Verified via
+    // Nominatim address geocoding of "1600 South College Street, Mountain Home, AR"
+    // (the ASUMH campus address) -> lat 36.3196, lon -92.3829.
+    const [x, z] = project(36.3196, -92.3829);
     addPoi(
       'asumh',
       'ASUMH Campus',
@@ -595,7 +599,7 @@ async function main() {
       x,
       z,
       250,
-      'not found by name in fetched OSM data; placed at the documented campus coordinate (lat 36.322, lon -92.391, 1600 S College St).'
+      'not found by name/amenity in fetched OSM data (campus buildings are tagged only building=yes, no university/college amenity or name); placed via Nominatim address geocoding of "1600 South College Street, Mountain Home, AR" (lat 36.3196, lon -92.3829).'
     );
   }
 
@@ -714,9 +718,12 @@ async function main() {
       )}).`
     );
   } else {
-    // Baxter County Airport (M17) is ~2.5 mi south of downtown at approx 36.3086, -92.4014 — outside
-    // our fetch bbox (lat >= 36.31), so it is placed via a documented coordinate, not fetched geometry.
-    const [x, z] = project(36.3086, -92.4014);
+    // Baxter County Airport (M17) is well NW of downtown, verified via Nominatim
+    // (lat 36.3691443, lon -92.4693810) — several km outside our fetch bbox, so it is
+    // placed via that geocoded coordinate, not fetched geometry, and then clamped into
+    // the world bbox below (with the rest of the POI-clamping pass) so its marker sits
+    // at the correct edge of the playable map.
+    const [x, z] = project(36.3691443, -92.469381);
     addPoi(
       'airport',
       'Baxter County Airport',
@@ -724,7 +731,7 @@ async function main() {
       x,
       z,
       300,
-      'not found in fetched OSM data (it lies just south of our bbox); placed at the documented approximate coordinate (lat 36.3086, lon -92.4014, M17).'
+      'not found in fetched OSM data (it lies several km NW of our bbox); placed via Nominatim geocoding (lat 36.3691443, lon -92.469381, M17) and clamped to the map edge in that direction.'
     );
   }
 
