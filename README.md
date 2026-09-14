@@ -8,3 +8,4 @@ Experiments that have nothing to do with the day job.
 | [sawyer](sawyer/) | An open-source browser video editor: multi-track timeline, effects with keyframes, transitions, audio mixing, real MP4/WebM export, and an AI editing assistant. |
 | [xmen-mh](xmen-mh/) | An open-world X-Men action game set in Mountain Home, Arkansas, built from real OpenStreetMap data. Browser, Three.js, one file, ten agents. |
 | [tesla-intent](tesla-intent/) | A design concept and working prototype for a Tesla Model Y in-car assistant that knows its own limits, asks before it spends, and remembers what you meant. |
+| [model-y-blender](model-y-blender/) | A 2023 Tesla Model Y Performance generated in Blender from published specification, with a working drivetrain simulation, a live 15-inch touchscreen, and Grok wired to the car's controls. |
