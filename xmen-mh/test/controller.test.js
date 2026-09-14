@@ -595,12 +595,13 @@ test('Jean double-taps into hover; the meter drains and refills on the ground', 
   pc.update(1 / 60);                    // second tap: hover
   st.input.keys.delete('Space');
   assert.equal(pc.hovering, true);
+  st.player.pos.y = 40;                 // give her some air to hover in
   const yStart = st.player.pos.y;
   step(pc, st, 1.0);
   assert.equal(pc.hovering, true, 'hover holds for up to 4 s');
   assert.ok(st.player.pos.y > yStart - 2.5, 'hovering is a slow fall');
   assert.ok(st.player.hoverMeter < TUNING.hoverMax - 0.8, 'meter drains');
-  step(pc, st, 6);                      // meter runs out, Jean drops and lands
+  step(pc, st, 8);                      // meter runs out, Jean drops and lands
   assert.equal(pc.hovering, false);
   assert.equal(st.player.grounded, true);
   assert.ok(st.player.hoverMeter > 0, 'meter refills on the ground');
@@ -640,6 +641,7 @@ test('attack runs a 3-hit combo and abilities fire per slot', () => {
   st.input.mouse.buttons = 1;           // LMB
   pc.update(1 / 60);
   st.input.mouse.buttons = 0;
+  pc.update(1 / 60);                    // button released
   assert.equal(pc.combo.index, 0);
   assert.ok(pc.rig.anims.includes('attack1'));
   st.time += 0.2;

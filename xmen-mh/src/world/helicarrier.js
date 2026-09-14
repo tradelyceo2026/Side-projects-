@@ -299,5 +299,3 @@ export function createHelicarrier(scene) {
     },
   };
 }
-
-const YAXIS = new THREE.Vector3(0, 1, 0);
