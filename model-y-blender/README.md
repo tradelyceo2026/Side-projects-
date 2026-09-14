@@ -101,11 +101,17 @@ from the repository without running anything.
 menu top-right **→ Install from Disk…**, pick `model_y_addon.zip`, then tick
 **Tesla Model Y 2023 Performance** in the list.
 
+Or skip the menus entirely: put the zip in your Downloads folder, open
+`blender/install_addon.py` in the **Scripting** workspace and **Run Script** —
+it installs, enables and saves preferences in one go.
+
 *Blender 4.2+ alternative:* drag `model_y_extension.zip` into a Blender window
 and confirm, or **Edit → Preferences → Get Extensions → Install from Disk…**.
 
 Then, in the 3D viewport, press **N** to open the sidebar and pick the
-**Model Y** tab:
+**Model Y** tab. (**N** only works while the mouse is actually over the
+viewport — **View → Sidebar** does the same thing from the menu. The tabs run
+vertically down the right-hand edge of the viewport.)
 
 * **Vehicle** — paint, interior and studio toggles, then **Build Model Y**
 * **Drive** — gear, accelerator, brake, steering, **Drive** to run the
