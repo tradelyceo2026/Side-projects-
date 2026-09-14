@@ -154,6 +154,9 @@ export function damageEntity(state, target, amount, source = 'unknown') {
       bus.emit('hit', { targetId: 'player', damage: 0, source, pos: target.pos, blocked: true });
       return 0;
     }
+    // brief invulnerability after a hit so a pack of goons cannot stun-lock the hero
+    if (state && target.iframeUntil && state.time < target.iframeUntil) return 0;
+    if (state) target.iframeUntil = (state.time || 0) + 0.6;
     const before = target.hp === undefined ? 100 : target.hp;
     const dealt = Math.min(before, amount);
     target.hp = Math.max(0, before - amount);

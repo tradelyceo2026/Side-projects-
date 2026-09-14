@@ -254,6 +254,8 @@ export class MissionManager {
     this._toastTimer = 0;
     this._prevPhase = 'play';
     this.dialogState = null; // { lines, i, timer, onDone }
+    // E (main.js) / click (hud) skip the line that is on screen.
+    this.bus.on('dialog_advance', () => { if (this.dialogState) this._advanceDialogLine(); });
   }
 
   // -- lifecycle -------------------------------------------------------------
@@ -416,8 +418,10 @@ export class MissionManager {
         const sc = this.sideCharacters.find((s) => s.id === objective.characterId);
         const p = sc ? safePoi(this.city, sc.at) : null;
         if (sc && p) {
+          // `<=`: the side-quest entry for the same character stands at the same spot,
+          // and the story objective must win that tie or the mission can never advance.
           const d = dist2D(px, pz, p.x, p.z);
-          if (d < bestD) { bestD = d; best = { kind: 'talk', id: objective.characterId, x: p.x, z: p.z, prompt: `Talk to ${sc.name}` }; }
+          if (d <= bestD) { bestD = d; best = { kind: 'talk', id: objective.characterId, x: p.x, z: p.z, prompt: `Talk to ${sc.name}` }; }
         }
       }
     }
@@ -425,20 +429,25 @@ export class MissionManager {
     return best;
   }
 
+  /**
+   * Banks one Cerebro core. Public so the main loop's walk-over pickup and the
+   * E-to-interact path share one list, one count and one `collect` event.
+   */
+  collect(c) {
+    if (!c || c.collected) return false;
+    c.collected = true;
+    this._collectCounts.cerebro = (this._collectCounts.cerebro || 0) + 1;
+    const total = this.collectibles.length;
+    this.bus.emit('collect', { kind: 'cerebro', pos: { x: c.x, y: c.y, z: c.z }, count: this._collectCounts.cerebro, total });
+    this.bus.emit('toast', { text: `Cerebro core recovered (${this._collectCounts.cerebro}/${total})` });
+    return true;
+  }
+
   interact() {
     const target = this.nearInteractable();
     if (!target) return false;
 
-    if (target.kind === 'collect') {
-      const c = this.collectibles.find((x) => x.id === target.id);
-      if (!c || c.collected) return false;
-      c.collected = true;
-      this._collectCounts.cerebro = (this._collectCounts.cerebro || 0) + 1;
-      const total = this.collectibles.length;
-      this.bus.emit('collect', { kind: 'cerebro', pos: { x: c.x, y: c.y, z: c.z }, count: this._collectCounts.cerebro, total });
-      this.bus.emit('toast', { text: `Cerebro core recovered (${this._collectCounts.cerebro}/${total})` });
-      return true;
-    }
+    if (target.kind === 'collect') return this.collect(this.collectibles.find((x) => x.id === target.id));
 
     if (target.kind === 'talk') {
       if (this.active && this.active.runner) this.active.runner.talkOk = true;

@@ -1313,7 +1313,15 @@ export class City {
         area: Math.abs(polygonArea(poly)),
       };
       rec.district = this.districtAt(centroid[0], centroid[1]);
-      rec.facade = facadeKeyFor(kind, rec.district);
+      // OSM tags nearly every block on the square as a bare `building=yes`, which arrives
+      // here as 'house'. On the courthouse square they are storefronts: brick, flat roof,
+      // two storeys — otherwise downtown renders as a cul-de-sac of vinyl-sided cottages.
+      if (rec.kind === 'house' && rec.district === DISTRICT.DOWNTOWN) {
+        rec.kind = 'commercial';
+        rec.height = Math.max(rec.height, 7.5);
+        rec.top = rec.padY + rec.height;
+      }
+      rec.facade = facadeKeyFor(rec.kind, rec.district);
       this.buildings.push(rec);
       this.buildingGrid.insert(rec, rec.minX, rec.minZ, rec.maxX, rec.maxZ);
       let radius = 0;

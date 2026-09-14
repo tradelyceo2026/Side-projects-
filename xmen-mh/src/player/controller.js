@@ -40,6 +40,7 @@ export const TUNING = {
   slopeTan: 1.19,           // ~50 degrees walkable
   coyote: 0.12,
   jumpBuffer: 0.15,
+  jumpScale: 2.2,           // multiplies the character's jump impulse (5 m/s → 11 m/s ≈ 2.7 m apex)
   comboWindow: 0.6,
   comboHits: 3,
   attackTime: 0.34,
@@ -773,7 +774,7 @@ export class PlayerController {
     const js = updateJump(this.jumpState, dt, { grounded: p.grounded, jumpPressed: jumpEdge, coyote: T.coyote, buffer: T.jumpBuffer });
     this.jumpState = js;
     if (js.jump) {
-      p.vel.y = def.jump ?? 5;
+      p.vel.y = (def.jump ?? 5) * TUNING.jumpScale; // superhero jump: ~2.7 m apex with gravity 22
       p.grounded = false;
       this.doubleJumpUsed = false;
       this.hovering = false;
@@ -964,6 +965,8 @@ export class PlayerController {
     const ctx = this.ctx();
     const fired = callUseAbility(st, name, ctx);
     if (fired) {
+      // Hover lives in the controller's movement state; the ability only announces it.
+      if (name === 'hover' && !p.grounded && (p.hoverMeter ?? 0) > 0.05) this.hovering = true;
       const r = this.rig; if (r && r.setAnim) r.setAnim('ability', { name });
       // abilities.js emits the 'ability' event itself; only announce it here when that
       // module is missing, so VFX/audio never hear the same cast twice.

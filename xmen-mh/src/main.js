@@ -8,7 +8,7 @@ import { CHARACTERS, createCharacterRig, createNpcRig, NPC_PRESETS } from './ent
 import { PlayerController, attachInput } from './player/controller.js';
 import { updateAbilities, spawnProps } from './abilities.js';
 import { EnemyManager } from './enemies.js';
-import { MissionManager, STORY, placeCollectibles } from './missions.js';
+import { MissionManager, STORY } from './missions.js';
 import { HUD } from './ui/hud.js';
 import { createHelicarrier } from './world/helicarrier.js';
 import { createSky } from './world/sky.js';
@@ -64,6 +64,7 @@ export async function boot() {
   const charDefs = Object.fromEntries(state.roster.map(id => [id, CHARACTERS[id]]));
   attachInput(state, canvas);
   const player = new PlayerController(state, world, rigs, camera, canvas, { charDefs });
+  hud.onSelect = (id) => player.switchTo(id);   // portrait row / character wheel
   const enemies = new EnemyManager(scene, city, createNpcRig, { thugPreset: NPC_PRESETS.thug });
   state.enemyManager = enemies;
   const vfx = new VFX(scene);
@@ -82,8 +83,9 @@ export async function boot() {
       rig.setAnim('idle'); scene.add(rig.group); npcs.push(rig); sc.rig = rig;
     } catch (e) { console.warn('npc failed', sc.id, e); }
   }
-  // collectibles
-  const cores = (placeCollectibles(city) || []).map(p => ({ ...p, taken: false }));
+  // collectibles — the mission manager owns the list, so walk-over pickups, the E prompt,
+  // the map markers and mission `collect` objectives all agree on what is left.
+  const cores = missions.collectibles;
   const coreGeo = new THREE.OctahedronGeometry(0.45, 0);
   const coreMat = new THREE.MeshStandardMaterial({ color: 0x66e0ff, emissive: 0x2299cc, emissiveIntensity: 1.2, metalness: 0.6, roughness: 0.2 });
   const coreMesh = new THREE.InstancedMesh(coreGeo, coreMat, Math.max(1, cores.length));
@@ -91,7 +93,11 @@ export async function boot() {
   cores.forEach((c, i) => { m4.makeTranslation(c.x, c.y + 1, c.z); coreMesh.setMatrixAt(i, m4); });
   coreMesh.instanceMatrix.needsUpdate = true; scene.add(coreMesh);
   hud.setCores?.(0, cores.length);
-  let collected = 0;
+  bus.on('collect', ({ count, total }) => {
+    hud.setCores?.(count, total);
+    const i = cores.findIndex(c => c.collected && !c._hidden);
+    if (i >= 0) { cores[i]._hidden = true; m4.makeScale(0, 0, 0); coreMesh.setMatrixAt(i, m4); coreMesh.instanceMatrix.needsUpdate = true; }
+  });
 
   // ---------- phases ----------
   const jp = carrier.jumpPoint;
@@ -124,7 +130,13 @@ export async function boot() {
     audio.setMusic?.('explore');
     bus.emit('toast', { text: 'Steer with WASD. Land on the courthouse square.' });
   };
-  bus.on('phase', ({ phase }) => { if (phase === 'play') { const c = missions.current?.(); if (!c || !c.mission) missions.start('m1'); } });
+  // Kick the campaign off on landing — but never re-start m1 in the gap between a
+  // mission's outro and the next mission taking over.
+  bus.on('phase', ({ phase }) => {
+    if (phase !== 'play') return;
+    const c = missions.current?.();
+    if ((!c || !c.mission) && !(missions.completedIds?.() || []).length) missions.start('m1');
+  });
   const startGame = () => {
     if (state._started) return; state._started = true;
     audio.resume?.(); audio.setMusic?.('title');
@@ -173,13 +185,8 @@ export async function boot() {
       // collectibles
       if (state.player && state.phase === 'play') {
         for (let i = 0; i < cores.length; i++) {
-          const c = cores[i]; if (c.taken) continue;
-          if (tmp.set(c.x - state.player.pos.x, c.y - state.player.pos.y, c.z - state.player.pos.z).lengthSq() < 4) {
-            c.taken = true; collected++;
-            m4.makeScale(0, 0, 0); coreMesh.setMatrixAt(i, m4); coreMesh.instanceMatrix.needsUpdate = true;
-            bus.emit('collect', { kind: 'cerebro', pos: new THREE.Vector3(c.x, c.y + 1, c.z), count: collected, total: cores.length });
-            hud.setCores?.(collected, cores.length);
-          }
+          const c = cores[i]; if (c.collected) continue;
+          if (tmp.set(c.x - state.player.pos.x, c.y - state.player.pos.y, c.z - state.player.pos.z).lengthSq() < 4) missions.collect(c);
         }
         coreMat.emissiveIntensity = 1 + 0.5 * Math.sin(state.time * 4);
       }

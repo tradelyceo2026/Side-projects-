@@ -122,6 +122,7 @@ const _head = new THREE.Vector3();
 const _tgt = new THREE.Vector3();
 const _tmp = new THREE.Vector3();
 const _tmp2 = new THREE.Vector3();
+const _aim = new THREE.Vector3();
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -143,6 +144,18 @@ function characterId(state) {
 
 /** Look direction, refreshed every frame from the live camera (falls back to ctx.dir / yaw). */
 function lookDir(state, ctx, out, flat) {
+  // ctx.dir is a snapshot taken when the ability fired; ask the controller for the live
+  // aim first so held abilities (beam, TK) follow the camera instead of freezing.
+  const c = ctx && ctx.controller;
+  if (c && typeof c.aimDir === 'function') {
+    const d = c.aimDir(_aim);
+    if (d && (d.x * d.x + d.y * d.y + d.z * d.z) > 1e-8) {
+      out.set(d.x, d.y, d.z);
+      if (flat) out.y = 0;
+      if (out.lengthSq() < 1e-8) out.set(0, 0, -1);
+      return out.normalize();
+    }
+  }
   return aimDirection(state, ctx, out, !!flat);
 }
 

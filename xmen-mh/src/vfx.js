@@ -456,6 +456,15 @@ export class VFX {
 
   // -------------------------------------------------------------- frame tick
   update(dt) {
+    // Follow the live optic beam (abilities.js keeps state.beam up to date each frame)
+    // so it tracks the camera and stops at whatever it is burning through.
+    if (this.beam.visible && state.beam && state.beam.active) {
+      this.opticBeam(state.beam.from, state.beam.to, true);
+    }
+    // Keep the auras on the player rather than where the ability was cast.
+    if (this._diamondActive && state.player && state.player.pos) {
+      this._diamondAnchor.position.copy(state.player.pos);
+    }
     this.arcs.update(dt);
     this.sparks.update(dt);
     this.debris.update(dt);

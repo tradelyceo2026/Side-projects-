@@ -530,7 +530,8 @@ export class HUD {
     if (phase === 'gameover') this.el.gameoverScreen.classList.remove('xmh-hide'); else this.el.gameoverScreen.classList.add('xmh-hide');
     if (phase === 'title') this._showTitleScreen(); else this._titleActive = false;
     this.letterbox(phase === 'dialog');
-    const playHud = phase === 'play' || phase === 'dialog';
+    // 'deck' and 'skydive' are playable too: the player is in control and needs vitals.
+    const playHud = phase === 'play' || phase === 'dialog' || phase === 'deck' || phase === 'skydive';
     ['vitals', 'roster', 'objectivePanel', 'minimapWrap', 'minimapToggle', 'reticle'].forEach((k) => {
       this.el[k].classList.toggle('xmh-hide', !playHud);
     });
