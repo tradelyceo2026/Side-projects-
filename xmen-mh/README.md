@@ -3,7 +3,8 @@
 An open-world, third-person X-Men action game set in Mountain Home, Arkansas, in the spirit of
 LEGO Marvel Super Heroes but with a traditional 3D look. It runs in the browser from one HTML file.
 
-- **Play:** open `dist/xmen-mh.html` in Chrome or Edge on a machine with a GPU. No install.
+- **Play:** open `dist/xmen-mh.html` in Chrome or Edge on a machine with a GPU. No install. Hosted copy:
+  https://claude.ai/code/artifact/8cd1f6eb-a5f0-466b-9a77-ba89eb143c7f
 - **The city is real.** Streets, buildings, parks and water come from OpenStreetMap data for Mountain Home
   (2,004 road segments, 1,720 building footprints), rebuilt procedurally in Three.js. US-62, AR-5, AR-201 and
   Cardinal Drive are where they are in town. The Baxter County Courthouse square is the origin, Baxter Regional
