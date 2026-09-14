@@ -810,6 +810,50 @@ async function main() {
   }
 
   // -------------------------------------------------------------------------
+  // ASUMH campus buildings: OSM has no mapped building footprints here (South College
+  // Street is only covered by individual address-point nodes, no `building=*` ways),
+  // yet the campus is the X-Mansion — central to the game. Rather than leave `kind:
+  // "campus"` completely absent from the dataset, synthesize a small placeholder
+  // cluster of building footprints around the verified ASUMH POI location. These are
+  // NOT real OSM geometry; documented clearly in docs/DATA.md.
+  // -------------------------------------------------------------------------
+
+  if (!buildings.some((b) => b.kind === 'campus')) {
+    const asumhPoi = pois.find((p) => p.id === 'asumh');
+    if (asumhPoi) {
+      function rectPoly(px, pz, w, d) {
+        const hw = w / 2,
+          hd = d / 2;
+        return [
+          [round1(px - hw), round1(pz - hd)],
+          [round1(px + hw), round1(pz - hd)],
+          [round1(px + hw), round1(pz + hd)],
+          [round1(px - hw), round1(pz + hd)],
+          [round1(px - hw), round1(pz - hd)],
+        ];
+      }
+      const cx = asumhPoi.x,
+        cz = asumhPoi.z;
+      const layout = [
+        { name: 'ASUMH Hall A', dx: -70, dz: -50, w: 50, d: 35 },
+        { name: 'ASUMH Hall B', dx: 70, dz: -50, w: 50, d: 35 },
+        { name: 'ASUMH Hall C', dx: -70, dz: 55, w: 60, d: 30 },
+        { name: 'ASUMH Student Center', dx: 60, dz: 60, w: 45, d: 35 },
+      ];
+      for (const l of layout) {
+        const px = cx + l.dx,
+          pz = cz + l.dz;
+        const poly = rectPoly(px, pz, l.w, l.d);
+        track(poly);
+        buildings.push({ id: buildingId++, name: l.name, kind: 'campus', height: HEIGHT_BY_KIND.campus, poly });
+      }
+      notes.push(
+        `- **campus buildings**: OSM has no mapped \`building=*\` footprints for the ASUMH campus in this area (South College St is covered only by individual address-point nodes, verified by direct API query). Added ${layout.length} synthetic placeholder building footprints (kind="campus", ids ${buildingId - layout.length}-${buildingId - 1}) centered on the \`asumh\` POI so \`city.js\` still has distinct campus geometry for the world renderer — these are NOT real OSM building outlines and should be treated as a stand-in.`
+      );
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Size guard: if too big, progressively trim per spec instructions.
   // -------------------------------------------------------------------------
 

@@ -30,6 +30,9 @@ export const CITY_DEFAULTS = {
   terrainSegments: { high: 192, medium: 128, low: 88 },
   treeChunk: 900,              // metres; instanced tree groups toggled by distance
   treeCullDistance: 1750,
+  lampSpacing: 55,             // metres between street lamps on primary roads
+  maxLamps: 1400,
+  maxCars: 700,
   downtownRadius: 240,
 };
 
@@ -971,7 +974,7 @@ export function addSteeple(mb, cx, cz, baseY, towerH = 7, color = null) {
 
 export const ROAD_CLASS = {
   primary:     { lift: 0.16, width: 14, sidewalk: true,  dash: true,  lamps: true,  parking: false },
-  secondary:   { lift: 0.14, width: 11, sidewalk: true,  dash: true,  lamps: true,  parking: true },
+  secondary:   { lift: 0.14, width: 11, sidewalk: true,  dash: true,  lamps: false, parking: true },
   tertiary:    { lift: 0.12, width: 9,  sidewalk: false, dash: true,  lamps: false, parking: true },
   residential: { lift: 0.10, width: 7,  sidewalk: false, dash: false, lamps: false, parking: true },
   service:     { lift: 0.08, width: 5,  sidewalk: false, dash: false, lamps: false, parking: false },
@@ -1699,7 +1702,7 @@ export class City {
     }
 
     // 3. fill the countryside outside the built-up area
-    const hillWant = Math.max(0, Math.floor(budget * 0.35) - spots.length * 0);
+    const hillWant = Math.max(0, Math.floor(budget * 0.35));
     for (let i = 0, made = 0; made < hillWant && i < hillWant * 6; i++) {
       const x = lerp(this.bounds.minX, this.bounds.maxX, rng());
       const z = lerp(this.bounds.minZ, this.bounds.maxZ, rng());
@@ -1745,7 +1748,7 @@ export class City {
     let flip = 0;
     for (const road of this.roads) {
       if (!road.spec.lamps) continue;
-      const stride = Math.max(1, Math.round(40 / this.opts.roadSampleStep));
+      const stride = Math.max(1, Math.round(this.opts.lampSpacing / this.opts.roadSampleStep));
       for (let i = 1; i < road.samples.length - 1; i += stride) {
         const s = road.samples[i], nb = road.samples[i + 1] || road.samples[i - 1];
         let dx = nb.x - s.x, dz = nb.z - s.z;
@@ -1761,6 +1764,13 @@ export class City {
       }
     }
     if (!posts.length) return;
+    if (posts.length > this.opts.maxLamps) {           // keep the busiest stretches, drop the rest
+      const keep = Math.max(1, Math.round(posts.length / this.opts.maxLamps));
+      const p2 = [], h2 = [];
+      for (let i = 0; i < posts.length; i++) if (i % keep === 0) { p2.push(posts[i]); h2.push(heads[i]); }
+      posts.length = 0; heads.length = 0;
+      posts.push(...p2); heads.push(...h2);
+    }
     const mb = new MeshBuilder(true);
     const GREY = [0.34, 0.35, 0.37];
     const post = new THREE.CylinderGeometry(0.085, 0.13, 8, 6, 1);
@@ -1807,18 +1817,25 @@ export class City {
     // lots beside the big-box stores, the hospital and the campus
     for (const b of this.buildings) {
       if (b.area < 700) continue;
-      const rows = b.area > 3000 ? 3 : 2;
+      const rows = b.area > 3000 ? 2 : 1;
       const y0 = b.padY;
       for (let r = 0; r < rows; r++) {
         const z = b.maxZ + 7 + r * 6.5;
         for (let x = b.minX + 2; x < b.maxX - 2; x += 3.0) {
-          if (rng() > 0.6) continue;
+          if (rng() > 0.35) continue;
           if (this._blocked(x, z, 0.4)) continue;
           push(x, z, 0, y0 + 0.06);
         }
       }
     }
     if (!cars.length) return;
+    if (cars.length > this.opts.maxCars) {             // spread the trim over the whole map
+      for (let i = cars.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        const t = cars[i]; cars[i] = cars[j]; cars[j] = t;
+      }
+      cars.length = this.opts.maxCars;
+    }
     const mb = new MeshBuilder(true);
     mb.addBox(0, 0.62, 0, 1.85, 0.72, 4.25, [1, 1, 1], 2);          // body (tinted per instance)
     mb.addBox(0, 1.22, -0.25, 1.62, 0.66, 2.15, [0.30, 0.34, 0.38], 2);  // cabin

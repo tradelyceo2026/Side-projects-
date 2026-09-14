@@ -35,8 +35,11 @@ export function setWorld(state) {
   // time running backwards means a new game (or a new test state): forget who drove props
   if (state.time !== undefined && state.time < _lastPropTick) _lastPropTick = -Infinity;
 }
-/** Game time at which any prop was last integrated — used to avoid double-stepping props. */
+// Game time at which someone OTHER than updateProps() last stepped a prop (src/main.js
+// walks state.props itself). abilities.js only takes the props over when this goes stale,
+// so they are never integrated twice in one frame.
 let _lastPropTick = -Infinity;
+let _inUpdateProps = false;
 export function propsLastSteppedAt() { return _lastPropTick; }
 
 const GRAVITY = -19.6;          // a touch heavier than real g; reads better for thrown junk
@@ -331,7 +334,7 @@ export class PhysicsProp {
   update(dt, city, state) {
     if (!this.alive || !(dt > 0)) return;
     const st = state || _world;
-    if (st && st.time !== undefined) _lastPropTick = st.time;
+    if (!_inUpdateProps && st && st.time !== undefined) _lastPropTick = st.time;
     if (this.held) { this.asleep = false; if (this.mesh) this.mesh.position.copy(this.pos); return; }
     if (this.asleep) return;
 
@@ -440,7 +443,12 @@ export function updateProps(state, dt, city) {
   state.__propsStamp = stamp;
   const c = city || state.city;
   const props = state.props;
-  for (let i = 0; i < props.length; i++) props[i].update(dt, c, state);
+  _inUpdateProps = true;
+  try {
+    for (let i = 0; i < props.length; i++) props[i].update(dt, c, state);
+  } finally {
+    _inUpdateProps = false;
+  }
 }
 
 /* ------------------------------------------------------------------ prop spawning */

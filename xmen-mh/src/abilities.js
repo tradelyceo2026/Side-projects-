@@ -298,7 +298,11 @@ const FIRE = {
     const p = playerOf(state, ctx);
     if (!p || !p.pos) return false;
     const dir = lookDir(state, ctx, _dir, true);
-    rt.dash = { t: DASH_TIME, dir: dir.clone(), speed: DASH_DIST / DASH_TIME, hit: new Set() };
+    const pv = p.vel;
+    rt.dash = {
+      t: DASH_TIME, dir: dir.clone(), speed: DASH_DIST / DASH_TIME, hit: new Set(),
+      preSpeed: pv ? Math.hypot(pv.x || 0, pv.z || 0) : 0,
+    };
     act.dash = DASH_TIME;
     p.dashing = true;
     if (ctx.rig && ctx.rig.setAnim) ctx.rig.setAnim('sprint');
@@ -477,7 +481,9 @@ function updateDash(state, dt) {
   if (city && typeof city.getGroundHeight === 'function' && p.grounded !== false) {
     pos.y = city.getGroundHeight(pos.x, pos.z);
   }
-  if (p.vel && p.vel.set) { p.vel.x = d.dir.x * d.speed; p.vel.z = d.dir.z * d.speed; }
+  // The controller integrates player.vel itself, so the dash moves the position directly and
+  // parks the horizontal velocity — otherwise the burst would be applied twice per frame.
+  if (p.vel && p.vel.set) { p.vel.x = 0; p.vel.z = 0; }
 
   // shoulder-check everyone we pass through
   const list = enemyList(state, ctx);
@@ -503,7 +509,14 @@ function updateDash(state, dt) {
   d.t -= dt;
   if (d.t <= 0) {
     rt.dash = null;
-    if (p) { p.dashing = false; if (p.vel && p.vel.set) { p.vel.x *= 0.25; p.vel.z *= 0.25; } }
+    if (p) {
+      p.dashing = false;
+      if (p.vel && p.vel.set) {          // hand a sane run speed back to the controller
+        const carry = Math.min(d.preSpeed || 0, 14);
+        p.vel.x = d.dir.x * carry;
+        p.vel.z = d.dir.z * carry;
+      }
+    }
   }
 }
 

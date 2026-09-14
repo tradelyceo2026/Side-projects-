@@ -216,6 +216,14 @@ test('dash covers 25 m in 0.25 s and knocks enemies down', () => {
   assert.equal(e.state, 'stagger');
   assert.equal(e.hp, 100, 'dash knocks down but does not damage');
   assert.equal(s.player.dashing, false);
+  assert.ok(Math.hypot(s.player.vel.x, s.player.vel.z) <= 14, 'no 100 m/s left over for the controller');
+
+  // a dash that starts at a run hands the run speed back
+  const s2 = fakeState('quicksilver');
+  s2.player.vel.set(0, 0, -13);
+  useAbility(s2, 'dash', makeCtx(s2));
+  for (let i = 0; i < 20; i++) { s2.time += 1 / 60; updateAbilities(s2, 1 / 60); s2.player.vel.x = 0; s2.player.vel.z = 0; }
+  assert.ok(Math.abs(s2.player.pos.z + 25) < 0.01, 'controller-style velocity resets do not shorten the dash');
 });
 
 /* ------------------------------------------------------------------ slow-mo */
