@@ -1,0 +1,1725 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ozark Orbital</title>
+<style>
+  :root { --bg:#05070f; --panel:rgba(8,12,26,0.78); --line:rgba(255,255,255,0.12); --fg:#e8ecf6; --dim:#9aa4bd; --accent:#ffd166; --cyan:#5fe0ff; --green:#7fe0a0; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:14px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; overflow:hidden; }
+  #view { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+  .panel { position:fixed; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px; backdrop-filter: blur(8px); }
+  #mission { left:12px; top:12px; width:min(330px, calc(100vw - 24px)); }
+  #mission h3 { margin:0 0 2px; font-size:14px; letter-spacing:.04em; color:var(--accent); }
+  #mission .goal { font-weight:600; }
+  #mission .hint { color:var(--dim); font-size:12px; margin-top:4px; }
+  #mission .done { color:var(--green); font-size:12px; }
+  #ap-status { margin-top:8px; font-size:12px; color:var(--dim); border-top:1px solid var(--line); padding-top:6px; }
+  #ap-status.active { color:var(--cyan); }
+  #telemetry { right:12px; top:12px; width:min(300px, calc(100vw - 24px)); font-variant-numeric: tabular-nums; }
+  #telemetry .grid { display:grid; grid-template-columns: auto 1fr; gap:2px 10px; font-size:12.5px; }
+  #telemetry .grid span { color:var(--dim); }
+  #telemetry .grid b { font-weight:600; text-align:right; }
+  .bar { height:6px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden; margin-top:3px; }
+  .bar i { display:block; height:100%; background:var(--green); width:0; transition: width .15s; }
+  .bar.thr i { background:var(--accent); }
+  #t-extra { color:var(--cyan); font-size:12px; margin-top:6px; min-height:1em; }
+  #log { left:12px; bottom:118px; width:min(360px, calc(100vw - 24px)); font-size:11.5px; color:var(--dim); max-height:120px; overflow:hidden; }
+  #log span { color:var(--accent); margin-right:6px; }
+  #controls { position:fixed; left:0; right:0; bottom:0; padding:8px 10px calc(8px + env(safe-area-inset-bottom)); display:flex; flex-wrap:wrap; gap:6px; justify-content:center; background:linear-gradient(transparent, rgba(5,7,15,0.9) 30%); }
+  .group { display:flex; gap:4px; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:4px; }
+  .group label { font-size:10px; color:var(--dim); padding:0 4px; letter-spacing:.06em; }
+  button { font:inherit; color:var(--fg); background:rgba(255,255,255,0.06); border:1px solid var(--line); border-radius:7px; padding:7px 10px; cursor:pointer; font-size:12.5px; min-width:38px; user-select:none; -webkit-user-select:none; }
+  button:hover { background:rgba(255,255,255,0.12); }
+  button.on { background:rgba(95,224,255,0.22); border-color:var(--cyan); }
+  button.big { background:rgba(255,209,102,0.2); border-color:var(--accent); font-weight:700; min-width:82px; }
+  #toasts { position:fixed; left:50%; top:14px; transform:translateX(-50%); display:flex; flex-direction:column; gap:6px; align-items:center; pointer-events:none; z-index:5; }
+  .toast { background:rgba(8,12,26,0.92); border:1px solid var(--line); border-left:3px solid var(--accent); padding:8px 14px; border-radius:8px; font-size:13px; animation: in .25s ease-out; max-width:min(560px, 90vw); }
+  .toast.out { opacity:0; transition:opacity .4s; }
+  @keyframes in { from { transform:translateY(-8px); opacity:0; } to { transform:none; opacity:1; } }
+  #overlay { position:fixed; inset:0; background:rgba(3,5,12,0.72); display:flex; align-items:center; justify-content:center; z-index:10; padding:16px; overflow:auto; }
+  #overlay[hidden] { display:none; }
+  .card { background:#0b1022; border:1px solid var(--line); border-radius:14px; padding:22px 24px; width:min(640px, 100%); box-shadow:0 20px 60px rgba(0,0,0,0.6); }
+  .card h1 { margin:0 0 4px; font-size:26px; letter-spacing:.02em; }
+  .card h2 { margin:0 0 6px; font-size:18px; color:var(--accent); }
+  .card .sub { color:var(--dim); margin:0 0 14px; }
+  .card .tiny { color:var(--dim); font-size:12px; margin:12px 0 0; }
+  .missions { display:grid; gap:8px; }
+  .mission { text-align:left; padding:10px 12px; display:block; }
+  .mission .mt { font-weight:700; }
+  .mission .mg { color:var(--dim); font-size:12.5px; }
+  .mission.done { border-color:rgba(127,224,160,0.5); }
+  .badge { color:var(--green); font-weight:500; font-size:12px; margin-left:6px; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:8px; margin:6px 0 16px; }
+  .stats div { background:rgba(255,255,255,0.05); border-radius:8px; padding:8px 10px; }
+  .stats span { display:block; color:var(--dim); font-size:11px; }
+  .stats b { font-size:15px; }
+  .row { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+  button.primary { background:rgba(255,209,102,0.25); border-color:var(--accent); font-weight:700; }
+  #help { right:12px; top:calc(12px + 330px); width:min(300px, calc(100vw - 24px)); font-size:12px; color:var(--dim); z-index:4; }
+  #help b { color:var(--fg); }
+  #help table { border-collapse:collapse; width:100%; }
+  #help td { padding:2px 4px; vertical-align:top; }
+  @media (max-width: 720px) {
+    body { font-size:12px; }
+    .panel { padding:7px 9px; border-radius:8px; }
+    #mission { width:min(190px, 48vw); }
+    #mission h3 { font-size:12px; }
+    #mission .goal { font-size:12px; }
+    #mission .hint, #mission .done { display:none; }
+    #ap-status { font-size:11px; margin-top:5px; padding-top:4px; }
+    #telemetry { width:min(180px, 48vw); }
+    #telemetry .grid { font-size:11px; gap:0 8px; }
+    #t-extra { font-size:11px; }
+    #log { display:none; }
+    #help { top:12px; }
+    #controls { gap:4px; padding:6px 6px calc(6px + env(safe-area-inset-bottom)); }
+    .group { padding:3px; gap:3px; border-radius:8px; }
+    .group label { display:none; }
+    button { padding:6px 7px; font-size:11.5px; min-width:32px; border-radius:6px; }
+    button.big { min-width:64px; }
+    #toasts { top:auto; bottom:190px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div id="mission" class="panel">
+  <h3 id="m-title">Mission</h3>
+  <div class="goal" id="m-goal"></div>
+  <div class="hint" id="m-hint"></div>
+  <div class="done" id="m-done"></div>
+  <div id="ap-status">Autopilot off</div>
+</div>
+
+<div id="telemetry" class="panel">
+  <div class="grid">
+    <span>MET</span><b id="t-met">00:00</b>
+    <span>Body</span><b id="t-body">Earth</b>
+    <span>Altitude</span><b id="t-alt">0</b>
+    <span>Speed</span><b id="t-speed">0</b>
+    <span>Vertical</span><b id="t-vspeed">0</b>
+    <span>Apoapsis</span><b id="t-apo">—</b>
+    <span>Periapsis</span><b id="t-peri">—</b>
+    <span>Time to Ap</span><b id="t-tapo">—</b>
+    <span>Time to Pe</span><b id="t-tperi">—</b>
+    <span>Eccentricity</span><b id="t-e">—</b>
+    <span>Δv remaining</span><b id="t-dv">—</b>
+    <span>Max-Q</span><b id="t-q">—</b>
+    <span>Warp</span><b id="t-warp">1×</b>
+  </div>
+  <div style="margin-top:6px;font-size:12px;color:var(--dim)" id="t-stage"></div>
+  <div class="bar"><i id="t-prop"></i></div>
+  <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-top:5px"><span>Throttle</span><span id="t-thrv">0%</span></div>
+  <div class="bar thr"><i id="t-thr"></i></div>
+  <div id="t-extra"></div>
+</div>
+
+<div id="log" class="panel"></div>
+
+<div id="help" class="panel" hidden>
+  <b>Controls</b>
+  <table>
+    <tr><td><b>Space</b></td><td>Launch / stage</td></tr>
+    <tr><td><b>Z / X</b></td><td>Full throttle / cut</td></tr>
+    <tr><td><b>Shift / Ctrl</b></td><td>Throttle up / down</td></tr>
+    <tr><td><b>← →</b></td><td>Rotate (manual attitude)</td></tr>
+    <tr><td><b>1 2 3 4</b></td><td>SAS: manual · up · prograde · retrograde</td></tr>
+    <tr><td><b>, .</b></td><td>Time warp down / up (physics warp caps at 10× while burning or in air)</td></tr>
+    <tr><td><b>A</b></td><td>Autopilot for the current phase (ascent / TLI / LOI)</td></tr>
+    <tr><td><b>Esc</b></td><td>Autopilot off</td></tr>
+    <tr><td><b>M / F</b></td><td>Map view / follow view</td></tr>
+    <tr><td><b>+ − / wheel</b></td><td>Zoom</td></tr>
+    <tr><td><b>P</b></td><td>Pause</td></tr>
+  </table>
+</div>
+
+<div id="toasts"></div>
+
+<div id="controls">
+  <div class="group"><button class="big" data-action="stage" id="b-stage">LAUNCH</button></div>
+  <div class="group"><label>THR</label><button data-action="cut">0</button><button data-action="thr-down">−</button><button data-action="thr-up">+</button><button data-action="full">100</button></div>
+  <div class="group"><label>ATT</label><button data-action="left">↶</button><button data-action="right">↷</button><button data-sas="manual">MAN</button><button data-sas="up">UP</button><button data-sas="prograde">PRO</button><button data-sas="retrograde">RET</button></div>
+  <div class="group"><label>AUTO</label><button data-action="ap-ascent">ASCENT</button><button data-action="ap-tli">TLI</button><button data-action="ap-loi">LOI</button><button data-action="ap-off">OFF</button></div>
+  <div class="group"><label>WARP</label><button data-action="warp-">◀</button><button data-action="warp+">▶</button></div>
+  <div class="group"><label>VIEW</label><button data-cam="auto">FOLLOW</button><button data-cam="map">MAP</button><button data-action="zoom-out">−</button><button data-action="zoom-in">+</button></div>
+  <div class="group"><button data-action="help">?</button><button data-action="new">MISSIONS</button></div>
+</div>
+
+<div id="overlay" hidden></div>
+<script>
+(() => {
+'use strict';
+
+// ===== src/physics.js =====
+// Ozark Orbital — physics core.
+// Pure functions, no DOM. Units: metres, seconds, kilograms, radians.
+// 2D equatorial-plane simulation with patched-conic sphere-of-influence handoff.
+
+const G0 = 9.80665;
+
+const EARTH = {
+  name: 'Earth',
+  mu: 3.986004418e14,
+  radius: 6371000,
+  rotation: 7.2921159e-5,      // rad/s
+  atmosphere: { rho0: 1.225, scaleHeight: 8500, top: 140000, p0: 101325 },
+  color: '#2f6fd6',
+};
+
+const MOON = {
+  name: 'Moon',
+  mu: 4.9048695e12,
+  radius: 1737400,
+  rotation: 2.6617e-6,
+  atmosphere: null,
+  color: '#b8b8b0',
+  orbitRadius: 384400000,
+  soi: 66100000,
+};
+// Moon mean motion around Earth (circular orbit assumed)
+MOON.meanMotion = Math.sqrt(EARTH.mu / Math.pow(MOON.orbitRadius, 3));
+MOON.period = 2 * Math.PI / MOON.meanMotion;
+MOON.orbitSpeed = MOON.meanMotion * MOON.orbitRadius;
+
+function moonState(t, phase0 = 0) {
+  const th = phase0 + MOON.meanMotion * t;
+  const c = Math.cos(th), s = Math.sin(th);
+  return {
+    x: MOON.orbitRadius * c,
+    y: MOON.orbitRadius * s,
+    vx: -MOON.orbitSpeed * s,
+    vy: MOON.orbitSpeed * c,
+    angle: th,
+  };
+}
+
+function atmDensity(body, alt) {
+  const a = body.atmosphere;
+  if (!a || alt > a.top || alt < -1000) return 0;
+  return a.rho0 * Math.exp(-Math.max(alt, 0) / a.scaleHeight);
+}
+function atmPressure(body, alt) {
+  const a = body.atmosphere;
+  if (!a || alt > a.top) return 0;
+  return a.p0 * Math.exp(-Math.max(alt, 0) / a.scaleHeight);
+}
+
+// ---------- Stumpff functions & universal-variable Kepler propagation ----------
+function stumpffC(z) {
+  if (z > 1e-8) { const s = Math.sqrt(z); return (1 - Math.cos(s)) / z; }
+  if (z < -1e-8) { const s = Math.sqrt(-z); return (Math.cosh(s) - 1) / (-z); }
+  return 0.5 - z / 24;
+}
+function stumpffS(z) {
+  if (z > 1e-8) { const s = Math.sqrt(z); return (s - Math.sin(s)) / (s * s * s); }
+  if (z < -1e-8) { const s = Math.sqrt(-z); return (Math.sinh(s) - s) / (s * s * s); }
+  return 1 / 6 - z / 120;
+}
+
+/**
+ * Propagate a two-body state by dt seconds using universal variables (all conics).
+ * state: {x,y,vx,vy}; returns new {x,y,vx,vy}.
+ */
+function propagateKepler(state, dt, mu) {
+  if (dt === 0) return { ...state };
+  const r0 = Math.hypot(state.x, state.y);
+  const v0sq = state.vx * state.vx + state.vy * state.vy;
+  const rdotv = state.x * state.vx + state.y * state.vy;
+  const vr0 = rdotv / r0;
+  const alpha = 2 / r0 - v0sq / mu; // 1/a
+  const sqmu = Math.sqrt(mu);
+
+  // For bound orbits reduce dt modulo the period for accuracy
+  if (alpha > 1e-16) {
+    const T = 2 * Math.PI / (sqmu * Math.pow(alpha, 1.5));
+    if (Math.abs(dt) > T) dt = dt % T;
+    if (dt === 0) return { ...state };
+  }
+
+  let chi;
+  if (alpha > 1e-16) {
+    chi = sqmu * alpha * dt;
+  } else if (alpha < -1e-16) {
+    const a = 1 / alpha;
+    const sgn = Math.sign(dt);
+    const num = -2 * mu * alpha * dt;
+    const den = rdotv + sgn * Math.sqrt(-mu * a) * (1 - r0 * alpha);
+    chi = sgn * Math.sqrt(-a) * Math.log(Math.abs(num / den));
+    if (!isFinite(chi)) chi = sgn * Math.sqrt(-a);
+  } else {
+    // parabolic: use a rough guess, Newton will fix
+    chi = sqmu * dt / r0;
+  }
+
+  for (let i = 0; i < 60; i++) {
+    const z = alpha * chi * chi;
+    const C = stumpffC(z), S = stumpffS(z);
+    const F = (r0 * vr0 / sqmu) * chi * chi * C + (1 - alpha * r0) * chi * chi * chi * S + r0 * chi - sqmu * dt;
+    const dF = (r0 * vr0 / sqmu) * chi * (1 - alpha * chi * chi * S) + (1 - alpha * r0) * chi * chi * C + r0;
+    const ratio = F / dF;
+    chi -= ratio;
+    if (Math.abs(ratio) < 1e-10 * Math.max(1, Math.abs(chi))) break;
+  }
+  const z = alpha * chi * chi;
+  const C = stumpffC(z), S = stumpffS(z);
+  const f = 1 - (chi * chi / r0) * C;
+  const g = dt - (chi * chi * chi / sqmu) * S;
+  const x = f * state.x + g * state.vx;
+  const y = f * state.y + g * state.vy;
+  const r = Math.hypot(x, y);
+  const fdot = (sqmu / (r * r0)) * chi * (z * S - 1);
+  const gdot = 1 - (chi * chi / r) * C;
+  return { x, y, vx: fdot * state.x + gdot * state.vx, vy: fdot * state.y + gdot * state.vy };
+}
+
+function propagate(state, dt, mu) {
+  const s = propagateKepler(state, dt, mu);
+  return s;
+}
+
+// ---------- Orbital elements (2D) ----------
+function orbitalElements(state, mu) {
+  const { x, y, vx, vy } = state;
+  const r = Math.hypot(x, y);
+  const v2 = vx * vx + vy * vy;
+  const h = x * vy - y * vx;                 // signed specific angular momentum (z)
+  const rdotv = x * vx + y * vy;
+  const ex = ((v2 - mu / r) * x - rdotv * vx) / mu;
+  const ey = ((v2 - mu / r) * y - rdotv * vy) / mu;
+  const e = Math.hypot(ex, ey);
+  const energy = v2 / 2 - mu / r;
+  const a = -mu / (2 * energy);              // negative for hyperbolic
+  const p = h * h / mu;
+  const rp = p / (1 + e);
+  const ra = e < 1 ? p / (1 - e) : Infinity;
+  const argPe = e > 1e-12 ? Math.atan2(ey, ex) : Math.atan2(y, x);
+  // true anomaly, signed so it is negative when approaching periapsis
+  let nu;
+  if (e > 1e-12) {
+    let c = (ex * x + ey * y) / (e * r);
+    c = Math.max(-1, Math.min(1, c));
+    nu = Math.acos(c);
+    if (rdotv < 0) nu = -nu;
+  } else {
+    nu = 0;
+  }
+  const period = e < 1 ? 2 * Math.PI * Math.sqrt(a * a * a / mu) : Infinity;
+  let tPeri, tApo;
+  if (e < 1) {
+    const E = 2 * Math.atan(Math.sqrt((1 - e) / (1 + e)) * Math.tan(nu / 2));
+    const M = E - e * Math.sin(E);
+    const n = Math.sqrt(mu / (a * a * a));
+    tPeri = (-M / n);
+    if (tPeri < 0) tPeri += period;
+    tApo = tPeri - period / 2;
+    if (tApo < 0) tApo += period;
+  } else {
+    const F = 2 * Math.atanh(Math.sqrt((e - 1) / (e + 1)) * Math.tan(nu / 2));
+    const M = e * Math.sinh(F) - F;
+    const n = Math.sqrt(mu / Math.pow(-a, 3));
+    tPeri = -M / n;
+    tApo = Infinity;
+  }
+  return { a, e, h, p, rp, ra, argPe, nu, period, energy, tPeri, tApo, direction: h >= 0 ? 1 : -1 };
+}
+
+/** Sample points along the conic for drawing. Returns array of [x,y]. */
+function orbitPath(el, mu, opts = {}) {
+  const n = opts.samples || 256;
+  const maxR = opts.maxRadius || Infinity;
+  const pts = [];
+  const dir = el.direction;
+  if (el.e < 1) {
+    for (let i = 0; i <= n; i++) {
+      const nu = (i / n) * 2 * Math.PI;
+      const r = el.p / (1 + el.e * Math.cos(nu));
+      const th = el.argPe + dir * nu;
+      pts.push([r * Math.cos(th), r * Math.sin(th)]);
+    }
+  } else {
+    let nuInf = Math.acos(-1 / el.e);
+    if (isFinite(maxR)) {
+      // limit to where r <= maxR
+      const c = (el.p / maxR - 1) / el.e;
+      if (c > -1 && c < 1) nuInf = Math.min(nuInf, Math.acos(c));
+    }
+    nuInf *= 0.999;
+    for (let i = 0; i <= n; i++) {
+      const nu = -nuInf + (i / n) * 2 * nuInf;
+      const r = el.p / (1 + el.e * Math.cos(nu));
+      const th = el.argPe + dir * nu;
+      pts.push([r * Math.cos(th), r * Math.sin(th)]);
+    }
+  }
+  return pts;
+}
+
+// ---------- Rocket equation ----------
+function deltaV(isp, m0, m1) {
+  return isp * G0 * Math.log(m0 / m1);
+}
+function circularSpeed(mu, r) { return Math.sqrt(mu / r); }
+function escapeSpeed(mu, r) { return Math.sqrt(2 * mu / r); }
+
+/** Hohmann transfer from circular r1 to r2: returns {dv1, dv2, time}. */
+function hohmann(mu, r1, r2) {
+  const at = (r1 + r2) / 2;
+  const v1 = Math.sqrt(mu / r1), v2 = Math.sqrt(mu / r2);
+  const vt1 = Math.sqrt(mu * (2 / r1 - 1 / at));
+  const vt2 = Math.sqrt(mu * (2 / r2 - 1 / at));
+  return { dv1: vt1 - v1, dv2: v2 - vt2, time: Math.PI * Math.sqrt(at * at * at / mu) };
+}
+
+// ---------- Integration for powered / atmospheric flight ----------
+/**
+ * RK4 step for state {x,y,vx,vy,m} with an acceleration function
+ * accel(x,y,vx,vy,m,t) -> {ax, ay, mdot}.
+ */
+function rk4Step(s, dt, t, accel) {
+  const k1 = accel(s.x, s.y, s.vx, s.vy, s.m, t);
+  const s2 = { x: s.x + 0.5 * dt * s.vx, y: s.y + 0.5 * dt * s.vy, vx: s.vx + 0.5 * dt * k1.ax, vy: s.vy + 0.5 * dt * k1.ay, m: s.m + 0.5 * dt * k1.mdot };
+  const k2 = accel(s2.x, s2.y, s2.vx, s2.vy, s2.m, t + dt / 2);
+  const s3 = { x: s.x + 0.5 * dt * s2.vx, y: s.y + 0.5 * dt * s2.vy, vx: s.vx + 0.5 * dt * k2.ax, vy: s.vy + 0.5 * dt * k2.ay, m: s.m + 0.5 * dt * k2.mdot };
+  const k3 = accel(s3.x, s3.y, s3.vx, s3.vy, s3.m, t + dt / 2);
+  const s4 = { x: s.x + dt * s3.vx, y: s.y + dt * s3.vy, vx: s.vx + dt * k3.ax, vy: s.vy + dt * k3.ay, m: s.m + dt * k3.mdot };
+  const k4 = accel(s4.x, s4.y, s4.vx, s4.vy, s4.m, t + dt);
+  return {
+    x: s.x + (dt / 6) * (s.vx + 2 * s2.vx + 2 * s3.vx + s4.vx),
+    y: s.y + (dt / 6) * (s.vy + 2 * s2.vy + 2 * s3.vy + s4.vy),
+    vx: s.vx + (dt / 6) * (k1.ax + 2 * k2.ax + 2 * k3.ax + k4.ax),
+    vy: s.vy + (dt / 6) * (k1.ay + 2 * k2.ay + 2 * k3.ay + k4.ay),
+    m: s.m + (dt / 6) * (k1.mdot + 2 * k2.mdot + 2 * k3.mdot + k4.mdot),
+  };
+}
+
+function wrapAngle(a) {
+  a = a % (2 * Math.PI);
+  if (a < 0) a += 2 * Math.PI;
+  return a;
+}
+function angleDiff(a, b) { // shortest signed difference a-b
+  let d = (a - b) % (2 * Math.PI);
+  if (d > Math.PI) d -= 2 * Math.PI;
+  if (d < -Math.PI) d += 2 * Math.PI;
+  return d;
+}
+
+
+// ===== src/vehicle.js =====
+// Ozark Orbital — launch vehicle definitions and staging.
+
+// A Falcon-9-class two-stage booster plus a storable-propellant kick stage
+// carrying the "Ozark-1" lunar probe. Numbers are public-domain approximations.
+const OZARK_1 = {
+  name: 'Ozark-1',
+  dragArea: 4.2,            // Cd * A (m^2)
+  stages: [
+    { name: 'Booster (S1)',   dry: 25600, prop: 395700, thrustSl: 7607000, thrustVac: 8227000, ispVac: 311, length: 42, width: 3.7 },
+    { name: 'Upper stage (S2)', dry: 3900, prop: 92670, thrustSl: 500000, thrustVac: 934000, ispVac: 348, length: 14, width: 3.7 },
+    { name: 'Kick stage + probe', dry: 1200, prop: 3800, thrustSl: 30000, thrustVac: 60000, ispVac: 320, length: 6, width: 2.4 },
+  ],
+};
+
+function createVehicle(def = OZARK_1) {
+  return {
+    def,
+    stageIndex: 0,
+    prop: def.stages.map(s => s.prop),
+    events: [],
+  };
+}
+
+function stage(v) { return v.def.stages[v.stageIndex] || null; }
+function stagesLeft(v) { return v.def.stages.length - v.stageIndex; }
+function totalMass(v) {
+  let m = 0;
+  for (let i = v.stageIndex; i < v.def.stages.length; i++) m += v.def.stages[i].dry + v.prop[i];
+  return m;
+}
+function propFraction(v) {
+  const s = stage(v);
+  return s ? v.prop[v.stageIndex] / s.prop : 0;
+}
+function massFlow(s) { return s.thrustVac / (s.ispVac * G0); }
+function thrustAt(s, body, alt) {
+  const p = atmPressure(body, alt);
+  const p0 = body.atmosphere ? body.atmosphere.p0 : 1;
+  return s.thrustVac - (s.thrustVac - s.thrustSl) * (p / p0);
+}
+function vehicleLength(v) {
+  let L = 0;
+  for (let i = v.stageIndex; i < v.def.stages.length; i++) L += v.def.stages[i].length;
+  return L;
+}
+/** Sum of ideal vacuum delta-v across remaining stages. */
+function deltaVRemaining(v) {
+  let dv = 0;
+  let mAbove = 0;
+  for (let i = v.def.stages.length - 1; i >= v.stageIndex; i--) {
+    const s = v.def.stages[i];
+    const m1 = mAbove + s.dry;
+    const m0 = m1 + v.prop[i];
+    dv += s.ispVac * G0 * Math.log(m0 / m1);
+    mAbove = m0;
+  }
+  return dv;
+}
+/** Jettison current stage. Returns true if staged. */
+function separate(v) {
+  if (v.stageIndex >= v.def.stages.length - 1) return false;
+  v.stageIndex++;
+  return true;
+}
+
+
+// ===== src/sim.js =====
+// Ozark Orbital — world simulation: powered flight (RK4), coasting (Kepler on rails),
+// patched-conic SOI transitions, ground contact, events.
+
+
+const MAX_PHYSICS_WARP = 10;
+const MAX_RAILS_WARP = 100000;
+const TURN_RATE = 0.6; // rad/s attitude slew
+
+function createSim(opts = {}) {
+  const t0 = 0;
+  const sim = {
+    t: t0,
+    met: 0,
+    launched: false,
+    status: 'pad',            // pad | flying | landed | crashed
+    bodyName: 'Earth',
+    ship: { x: EARTH.radius, y: 0, vx: 0, vy: EARTH.rotation * EARTH.radius },
+    vehicle: createVehicle(opts.vehicle),
+    heading: 0,               // absolute inertial angle the nose points at
+    headingCmd: 0,
+    throttle: 0,
+    sas: 'up',                // manual | up | prograde | retrograde
+    warp: 1,
+    onRails: false,
+    moonPhase0: opts.moonPhase0 ?? Math.PI * 0.75,
+    maxQ: 0,
+    log: [],
+    lastAccel: 0,
+    autoStage: true,
+    padAngle: 0,
+  };
+  sim.heading = 0; sim.headingCmd = 0;
+  return sim;
+}
+
+function body(sim) { return sim.bodyName === 'Moon' ? MOON : EARTH; }
+
+function logEvent(sim, text) {
+  sim.log.push({ t: sim.met, text });
+  if (sim.log.length > 200) sim.log.shift();
+}
+
+function altitude(sim) {
+  return Math.hypot(sim.ship.x, sim.ship.y) - body(sim).radius;
+}
+function radialDir(sim) {
+  const r = Math.hypot(sim.ship.x, sim.ship.y);
+  return { x: sim.ship.x / r, y: sim.ship.y / r };
+}
+/** Velocity relative to the rotating surface / atmosphere. */
+function surfaceVelocity(sim) {
+  const b = body(sim);
+  const w = b.rotation;
+  return { x: sim.ship.vx + w * sim.ship.y, y: sim.ship.vy - w * sim.ship.x };
+}
+function verticalSpeed(sim) {
+  const u = radialDir(sim);
+  return sim.ship.vx * u.x + sim.ship.vy * u.y;
+}
+function elements(sim) { return orbitalElements(sim.ship, body(sim).mu); }
+function moonRel(sim) { return moonState(sim.t, sim.moonPhase0); }
+
+/** Position of ship in Earth-centred frame regardless of current SOI. */
+function earthFrame(sim) {
+  if (sim.bodyName === 'Earth') return { ...sim.ship };
+  const m = moonRel(sim);
+  return { x: sim.ship.x + m.x, y: sim.ship.y + m.y, vx: sim.ship.vx + m.vx, vy: sim.ship.vy + m.vy };
+}
+
+function progradeAngle(sim, surface) {
+  const v = surface ? surfaceVelocity(sim) : sim.ship;
+  const speed = Math.hypot(v.vx ?? v.x, v.vy ?? v.y);
+  if (speed < 1) { const u = radialDir(sim); return Math.atan2(u.y, u.x); }
+  return Math.atan2(v.vy ?? v.y, v.vx ?? v.x);
+}
+
+function launch(sim) {
+  if (sim.status !== 'pad') return;
+  sim.launched = true;
+  sim.status = 'flying';
+  sim.throttle = 1;
+  logEvent(sim, 'Liftoff from Ozark Spaceport');
+}
+
+function doStage(sim) {
+  const s = stage(sim.vehicle);
+  const name = s ? s.name : '';
+  if (separate(sim.vehicle)) {
+    logEvent(sim, `Separation: ${name}`);
+    return true;
+  }
+  return false;
+}
+
+function slewHeading(sim, dt) {
+  const b = body(sim);
+  let target = sim.headingCmd;
+  if (sim.sas === 'up') { const u = radialDir(sim); target = Math.atan2(u.y, u.x); }
+  else if (sim.sas === 'prograde') target = progradeAngle(sim, altitude(sim) < (b.atmosphere ? b.atmosphere.top : 0));
+  else if (sim.sas === 'retrograde') target = progradeAngle(sim, altitude(sim) < (b.atmosphere ? b.atmosphere.top : 0)) + Math.PI;
+  let d = target - sim.heading;
+  d = ((d + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+  const maxStep = TURN_RATE * dt;
+  if (Math.abs(d) <= maxStep) sim.heading = target; else sim.heading += Math.sign(d) * maxStep;
+  sim.heading = wrapAngle(sim.heading);
+}
+
+function makeAccel(sim) {
+  const b = body(sim);
+  const v = sim.vehicle;
+  const s = stage(v);
+  const cdA = v.def.dragArea;
+  const w = b.rotation;
+  const engineOn = sim.throttle > 0 && s && v.prop[v.stageIndex] > 0;
+  const hx = Math.cos(sim.heading), hy = Math.sin(sim.heading);
+  return (x, y, vx, vy, m) => {
+    const r2 = x * x + y * y, r = Math.sqrt(r2);
+    const g = -b.mu / (r2 * r);
+    let ax = g * x, ay = g * y;
+    const alt = r - b.radius;
+    // drag (relative to rotating atmosphere)
+    const rho = atmDensity(b, alt);
+    let mdot = 0;
+    if (rho > 0) {
+      const rvx = vx + w * y, rvy = vy - w * x;
+      const rv = Math.hypot(rvx, rvy);
+      if (rv > 0) {
+        const fd = 0.5 * rho * rv * rv * cdA;
+        ax -= fd * rvx / (rv * m); ay -= fd * rvy / (rv * m);
+      }
+    }
+    if (engineOn) {
+      const T = thrustAt(s, b, alt) * sim.throttle;
+      ax += T * hx / m; ay += T * hy / m;
+      mdot = -massFlow(s) * sim.throttle;
+    }
+    return { ax, ay, mdot };
+  };
+}
+
+function checkSoi(sim) {
+  if (sim.bodyName === 'Earth') {
+    const m = moonRel(sim);
+    const dx = sim.ship.x - m.x, dy = sim.ship.y - m.y;
+    if (Math.hypot(dx, dy) < MOON.soi) {
+      sim.ship = { x: dx, y: dy, vx: sim.ship.vx - m.vx, vy: sim.ship.vy - m.vy };
+      sim.bodyName = 'Moon';
+      logEvent(sim, 'Entered the Moon\'s sphere of influence');
+      return true;
+    }
+  } else {
+    if (Math.hypot(sim.ship.x, sim.ship.y) > MOON.soi) {
+      const m = moonRel(sim);
+      sim.ship = { x: sim.ship.x + m.x, y: sim.ship.y + m.y, vx: sim.ship.vx + m.vx, vy: sim.ship.vy + m.vy };
+      sim.bodyName = 'Earth';
+      logEvent(sim, 'Left the Moon\'s sphere of influence');
+      return true;
+    }
+  }
+  return false;
+}
+
+function checkGround(sim) {
+  const b = body(sim);
+  const r = Math.hypot(sim.ship.x, sim.ship.y);
+  if (r <= b.radius) {
+    const sv = surfaceVelocity(sim);
+    const speed = Math.hypot(sv.x, sv.y);
+    // pin to surface
+    const u = { x: sim.ship.x / r, y: sim.ship.y / r };
+    sim.ship.x = u.x * b.radius; sim.ship.y = u.y * b.radius;
+    sim.ship.vx = -b.rotation * sim.ship.y; sim.ship.vy = b.rotation * sim.ship.x;
+    sim.throttle = 0;
+    sim.warp = 1;
+    if (speed > 12) { sim.status = 'crashed'; logEvent(sim, `Impact at ${speed.toFixed(0)} m/s on the ${b.name}`); }
+    else { sim.status = 'landed'; logEvent(sim, `Touchdown on the ${b.name}`); }
+    return true;
+  }
+  return false;
+}
+
+/** Whether the ship can coast on rails right now. */
+function canRails(sim) {
+  const b = body(sim);
+  const v = sim.vehicle;
+  const s = stage(v);
+  const engineOn = sim.throttle > 0 && s && v.prop[v.stageIndex] > 0;
+  if (engineOn) return false;
+  const alt = altitude(sim);
+  if (b.atmosphere && alt < b.atmosphere.top) return false;
+  return true;
+}
+
+/** Advance the world by real seconds `realDt` (warp applied inside). */
+function step(sim, realDt) {
+  if (sim.status === 'pad') {
+    sim.t += realDt * sim.warp;
+    sim.padAngle = wrapAngle(EARTH.rotation * sim.t);
+    sim.ship = { x: EARTH.radius * Math.cos(sim.padAngle), y: EARTH.radius * Math.sin(sim.padAngle), vx: -EARTH.rotation * EARTH.radius * Math.sin(sim.padAngle), vy: EARTH.rotation * EARTH.radius * Math.cos(sim.padAngle) };
+    sim.heading = sim.padAngle; sim.headingCmd = sim.padAngle;
+    if (sim.launched) sim.status = 'flying';
+    return;
+  }
+  if (sim.status !== 'flying') { sim.t += realDt; return; }
+
+  const rails = canRails(sim);
+  sim.onRails = rails;
+  if (rails) {
+    if (sim.warp > MAX_RAILS_WARP) sim.warp = MAX_RAILS_WARP;
+    let dt = realDt * sim.warp;
+    const b = body(sim);
+    // sub-step so SOI checks stay accurate; keep each sub-step below ~1/50 of period or 200s
+    const el = elements(sim);
+    const maxSub = isFinite(el.period) ? Math.max(1, Math.min(el.period / 50, 600)) : 120;
+    let n = Math.max(1, Math.ceil(dt / maxSub));
+    if (n > 400) n = 400;
+    const h = dt / n;
+    for (let i = 0; i < n; i++) {
+      sim.ship = propagateKepler(sim.ship, h, b.mu);
+      sim.t += h; sim.met += h;
+      slewHeading(sim, h);
+      if (checkSoi(sim)) break;
+      if (Math.hypot(sim.ship.x, sim.ship.y) <= body(sim).radius) { checkGround(sim); break; }
+    }
+    return;
+  }
+
+  if (sim.warp > MAX_PHYSICS_WARP) sim.warp = MAX_PHYSICS_WARP;
+  let dt = realDt * sim.warp;
+  const alt = altitude(sim);
+  const maxSub = alt < 150000 ? 0.05 : 0.5;
+  const n = Math.max(1, Math.ceil(dt / maxSub));
+  const h = dt / n;
+  const v = sim.vehicle;
+  for (let i = 0; i < n; i++) {
+    slewHeading(sim, h);
+    const s = stage(v);
+    if (sim.throttle > 0 && s && v.prop[v.stageIndex] <= 0) {
+      if (sim.autoStage && v.stageIndex < v.def.stages.length - 1) doStage(sim);
+    }
+    const accel = makeAccel(sim);
+    const m0 = totalMass(v);
+    const st = rk4Step({ ...sim.ship, m: m0 }, h, sim.t, accel);
+    const burned = m0 - st.m;
+    if (burned > 0) {
+      v.prop[v.stageIndex] = Math.max(0, v.prop[v.stageIndex] - burned);
+      if (v.prop[v.stageIndex] === 0) logEvent(sim, `${stage(v).name}: propellant depleted`);
+    }
+    sim.lastAccel = Math.hypot(st.vx - sim.ship.vx, st.vy - sim.ship.vy) / h;
+    sim.ship = { x: st.x, y: st.y, vx: st.vx, vy: st.vy };
+    sim.t += h; sim.met += h;
+    // max-Q tracking
+    const b = body(sim);
+    const rho = atmDensity(b, altitude(sim));
+    if (rho > 0) { const sv = surfaceVelocity(sim); const q = 0.5 * rho * (sv.x * sv.x + sv.y * sv.y); if (q > sim.maxQ) sim.maxQ = q; }
+    if (checkGround(sim)) break;
+    if (checkSoi(sim)) break;
+  }
+}
+
+function summary(sim) {
+  const b = body(sim);
+  const el = elements(sim);
+  const sv = surfaceVelocity(sim);
+  return {
+    body: b.name,
+    alt: altitude(sim),
+    speed: Math.hypot(sim.ship.vx, sim.ship.vy),
+    surfaceSpeed: Math.hypot(sv.x, sv.y),
+    vertSpeed: verticalSpeed(sim),
+    apoAlt: el.ra - b.radius,
+    periAlt: el.rp - b.radius,
+    e: el.e,
+    period: el.period,
+    tApo: el.tApo,
+    tPeri: el.tPeri,
+    dv: deltaVRemaining(sim.vehicle),
+    mass: totalMass(sim.vehicle),
+    stage: stage(sim.vehicle),
+    stageIndex: sim.vehicle.stageIndex,
+    prop: sim.vehicle.prop[sim.vehicle.stageIndex],
+    met: sim.met,
+    status: sim.status,
+    onRails: sim.onRails,
+    warp: sim.warp,
+  };
+}
+
+
+// ===== src/autopilot.js =====
+// Ozark Orbital — flight computer. Runs the same code in the browser and in headless tests.
+
+
+
+const PROGRAMS = {
+  ASCENT: 'ascent',      // pad -> circular parking orbit
+  TLI: 'tli',            // parking orbit -> trans-lunar injection -> Moon SOI
+  LOI: 'loi',            // Moon SOI -> lunar orbit insertion
+};
+
+function createAutopilot() {
+  return { program: null, phase: 'idle', targetAlt: 200000, info: '', burnStart: 0, lastPhaseChange: 0, lunarTargetAlt: 300000 };
+}
+
+function startProgram(ap, sim, program) {
+  ap.program = program;
+  ap.phase = 'start';
+  ap.info = '';
+  logEvent(sim, `Autopilot: ${program.toUpperCase()} program engaged`);
+}
+function stopAutopilot(ap, sim) {
+  if (ap.program) logEvent(sim, 'Autopilot disengaged');
+  ap.program = null; ap.phase = 'idle'; ap.info = '';
+  sim.warp = Math.min(sim.warp, 1);
+}
+
+function setPhase(ap, sim, phase, note) {
+  ap.phase = phase; ap.lastPhaseChange = sim.met;
+  if (note) logEvent(sim, `Autopilot: ${note}`);
+}
+
+/** Choose a warp so that `secondsAway` is reached in a handful of frames without overshooting. */
+function warpFor(secondsAway, frameDt, maxWarp) {
+  if (secondsAway <= 0) return 1;
+  const w = secondsAway / (8 * frameDt);
+  const steps = [1, 2, 5, 10, 50, 100, 500, 1000, 5000, 10000, 50000, 100000];
+  let best = 1;
+  for (const s of steps) if (s <= w && s <= maxWarp) best = s;
+  return best;
+}
+
+/** True when the current stage is dry; stages automatically if another stage remains. */
+function dry(sim) {
+  const v = sim.vehicle;
+  if (v.prop[v.stageIndex] > 0) return false;
+  if (stagesLeft(v) > 1) { doStage(sim); return false; }
+  return true;
+}
+
+function burnTimeFor(sim, dv) {
+  const s = stage(sim.vehicle);
+  if (!s) return 0;
+  const m = totalMass(sim.vehicle);
+  const T = thrustAt(s, body(sim), altitude(sim));
+  const a = T / m;
+  return dv / a;
+}
+
+function setHeadingFromPitch(sim, pitchFromVertical) {
+  // pitch toward the direction of orbital motion (east / counter-clockwise)
+  const u = radialDir(sim);
+  const up = Math.atan2(u.y, u.x);
+  sim.sas = 'manual';
+  sim.headingCmd = up - pitchFromVertical; // negative? east = up rotated by -90deg in CCW frame? compute:
+  // tangential (east / prograde) direction for CCW motion is up + 90deg.
+  sim.headingCmd = up + pitchFromVertical;
+}
+
+// ---------------- ASCENT ----------------
+function ascent(ap, sim, frameDt) {
+  const b = body(sim);
+  const alt = altitude(sim);
+  const el = elements(sim);
+  const target = ap.targetAlt;
+  switch (ap.phase) {
+    case 'start':
+      sim.warp = 1; sim.sas = 'up'; sim.throttle = 1;
+      if (sim.status === 'pad') launch(sim);
+      setPhase(ap, sim, 'liftoff');
+      break;
+    case 'liftoff': {
+      sim.sas = 'up'; sim.throttle = 1;
+      const sv = surfaceVelocity(sim);
+      if (Math.hypot(sv.x, sv.y) > 70) setPhase(ap, sim, 'gravityturn', 'beginning gravity turn');
+      break;
+    }
+    case 'gravityturn': {
+      sim.throttle = 1;
+      // pitch program: pitch from vertical grows with altitude; stage-2 guard keeps climb rate sane
+      let pitch = (Math.PI / 2) * (1 - Math.exp(-alt / 32000));
+      if (sim.vehicle.stageIndex >= 1) {
+        const vv = verticalSpeed(sim);
+        const vvDes = Math.max(0, Math.min(500, (target - alt) / 150));
+        const corr = (vvDes - vv) * 0.0025; // rad per m/s
+        pitch -= Math.max(-0.35, Math.min(0.15, corr));
+      }
+      pitch = Math.max(0, Math.min(Math.PI / 2 + 0.1, pitch));
+      setHeadingFromPitch(sim, pitch);
+      ap.info = `Gravity turn · pitch ${(pitch * 180 / Math.PI).toFixed(0)}°`;
+      if (el.ra - b.radius >= target && alt > 100000) {
+        sim.throttle = 0;
+        setPhase(ap, sim, 'coast', 'MECO — coasting to apoapsis');
+      }
+      break;
+    }
+    case 'coast': {
+      sim.throttle = 0; sim.sas = 'prograde';
+      const r = el.ra;
+      const vApo = Math.sqrt(b.mu * (2 / r - 1 / el.a));
+      const dv = Math.sqrt(b.mu / r) - vApo;
+      const tb = burnTimeFor(sim, dv);
+      const lead = el.tApo - tb / 2;
+      ap.info = `Coast · circularization Δv ${dv.toFixed(0)} m/s · burn ${tb.toFixed(0)} s · in ${Math.max(0, lead).toFixed(0)} s`;
+      if (alt < (b.atmosphere ? b.atmosphere.top : 0)) { sim.warp = 1; break; }
+      if (lead <= 0.5) { setPhase(ap, sim, 'circ', 'circularization burn'); sim.warp = 1; }
+      else sim.warp = warpFor(lead, frameDt, 1000);
+      break;
+    }
+    case 'circ': {
+      sim.sas = 'prograde'; sim.throttle = 1; sim.warp = 1;
+      ap.info = `Circularizing · periapsis ${((el.rp - b.radius) / 1000).toFixed(0)} km`;
+      if (dry(sim)) { sim.throttle = 0; ap.program = null; ap.info = 'Out of propellant during circularization'; break; }
+      if (el.rp - b.radius >= target - 5000) {
+        sim.throttle = 0;
+        setPhase(ap, sim, 'done', `orbit achieved: ${((el.rp - b.radius) / 1000).toFixed(0)} × ${((el.ra - b.radius) / 1000).toFixed(0)} km`);
+        ap.program = null; ap.info = 'Parking orbit achieved';
+      }
+      break;
+    }
+  }
+}
+
+// ---------------- TLI ----------------
+/** Phase angle of the Moon ahead of the ship (radians, 0..2pi). */
+function moonPhaseAngle(sim) {
+  const m = moonRel(sim);
+  const shipAng = Math.atan2(sim.ship.y, sim.ship.x);
+  return wrapAngle(m.angle - shipAng);
+}
+/** Required lead angle for a Hohmann-type transfer from current radius. */
+function requiredLeadAngle(sim) {
+  const r = Math.hypot(sim.ship.x, sim.ship.y);
+  const h = hohmann(EARTH.mu, r, MOON.orbitRadius);
+  return Math.PI - MOON.meanMotion * h.time;
+}
+
+/** Predict closest approach to the Moon (Earth frame) over the next `horizon` seconds for a coasting ship. */
+function predictMoonApproach(sim, horizon = 6 * 86400, samples = 240) {
+  let best = { dist: Infinity, t: 0 };
+  const s0 = sim.ship;
+  for (let i = 1; i <= samples; i++) {
+    const dt = (i / samples) * horizon;
+    const s = propagateKepler(s0, dt, EARTH.mu);
+    if (Math.hypot(s.x, s.y) < EARTH.radius) break;
+    const m = moonState(sim.t + dt, sim.moonPhase0);
+    const d = Math.hypot(s.x - m.x, s.y - m.y);
+    if (d < best.dist) best = { dist: d, t: dt };
+  }
+  return best;
+}
+
+function tli(ap, sim, frameDt) {
+  const b = body(sim);
+  if (sim.bodyName === 'Moon') { setPhase(ap, sim, 'done'); ap.program = null; ap.info = 'In lunar SOI'; sim.warp = 1; return; }
+  const el = elements(sim);
+  switch (ap.phase) {
+    case 'start': {
+      if (el.e > 0.05 || el.rp < b.radius + 120000) { ap.info = 'TLI needs a low circular parking orbit first'; stopAutopilot(ap, sim); return; }
+      setPhase(ap, sim, 'wait', 'waiting for lunar transfer window');
+      break;
+    }
+    case 'wait': {
+      sim.throttle = 0; sim.sas = 'prograde';
+      const r = Math.hypot(sim.ship.x, sim.ship.y);
+      const h = hohmann(EARTH.mu, r, MOON.orbitRadius);
+      const tb = burnTimeFor(sim, h.dv1);
+      const shipRate = Math.sqrt(b.mu / (r * r * r));
+      // Start the burn early by half its arc so the impulse is centred on the ideal point
+      const lead = requiredLeadAngle(sim) + shipRate * tb / 2 - MOON.meanMotion * tb / 2;
+      const phase = moonPhaseAngle(sim);
+      let d = angleDiff(phase, lead); // >0 : moon still too far ahead; it closes at (shipRate - moonRate)
+      if (d < 0) d += 2 * Math.PI;
+      const tWindow = d / (shipRate - MOON.meanMotion);
+      ap.info = `Transfer window in ${(tWindow / 60).toFixed(1)} min · phase ${(phase * 180 / Math.PI).toFixed(1)}° → ${(lead * 180 / Math.PI).toFixed(1)}° · Δv ${h.dv1.toFixed(0)} m/s`;
+      if (tWindow <= 0.5 * frameDt * sim.warp || tWindow < 0.5) { sim.warp = 1; setPhase(ap, sim, 'burn', `TLI burn, Δv ${h.dv1.toFixed(0)} m/s`); }
+      else sim.warp = warpFor(tWindow, frameDt, 1000);
+      break;
+    }
+    case 'burn': {
+      sim.sas = 'prograde'; sim.throttle = 1; sim.warp = 1;
+      const targetApo = MOON.orbitRadius + 20000000;
+      ap.info = `TLI burn · apoapsis ${((el.ra - b.radius) / 1000).toFixed(0)} km`;
+      if (dry(sim)) { sim.throttle = 0; ap.program = null; ap.info = 'Out of propellant during TLI'; break; }
+      if (el.ra >= targetApo || el.e >= 1) {
+        sim.throttle = 0;
+        const p = predictMoonApproach(sim);
+        setPhase(ap, sim, 'coast', `TLI complete — predicted lunar approach ${(p.dist / 1000).toFixed(0)} km in ${(p.t / 3600).toFixed(1)} h`);
+      }
+      break;
+    }
+    case 'coast': {
+      sim.throttle = 0; sim.sas = 'prograde';
+      const p = predictMoonApproach(sim);
+      ap.info = `Coasting to the Moon · closest approach ${(p.dist / 1000).toFixed(0)} km in ${(p.t / 3600).toFixed(1)} h`;
+      if (p.dist > MOON.soi && p.t < 60) { ap.info = 'Missed the Moon — no encounter'; ap.program = null; sim.warp = 1; break; }
+      sim.warp = warpFor(Math.max(p.t - 3600, 60), frameDt, 10000);
+      if (altitude(sim) < 500000) sim.warp = Math.min(sim.warp, 50);
+      break;
+    }
+  }
+}
+
+// ---------------- LOI ----------------
+function elementsAfterImpulse(sim, dvx, dvy) {
+  return orbitalElements({ x: sim.ship.x, y: sim.ship.y, vx: sim.ship.vx + dvx, vy: sim.ship.vy + dvy }, body(sim).mu);
+}
+
+function loi(ap, sim, frameDt) {
+  const b = body(sim);
+  if (sim.bodyName !== 'Moon') { ap.info = 'LOI program needs to be inside the Moon\'s sphere of influence'; stopAutopilot(ap, sim); return; }
+  const el = elements(sim);
+  const targetPeri = 100000;
+  switch (ap.phase) {
+    case 'start':
+      setPhase(ap, sim, 'check', 'assessing approach');
+      break;
+    case 'check': {
+      sim.throttle = 0;
+      if (el.rp - b.radius < 30000 || el.rp - b.radius > 2000000) {
+        // choose a normal-to-velocity direction that moves periapsis toward the target
+        const v = Math.hypot(sim.ship.vx, sim.ship.vy);
+        const nx = -sim.ship.vy / v, ny = sim.ship.vx / v;
+        const plus = elementsAfterImpulse(sim, nx * 5, ny * 5).rp;
+        const minus = elementsAfterImpulse(sim, -nx * 5, -ny * 5).rp;
+        const want = targetPeri + b.radius;
+        const better = Math.abs(plus - want) < Math.abs(minus - want) ? 1 : -1;
+        ap.corrDir = Math.atan2(better * ny, better * nx);
+        setPhase(ap, sim, 'correct', `correcting periapsis (${((el.rp - b.radius) / 1000).toFixed(0)} km)`);
+      } else setPhase(ap, sim, 'coastperi', 'coasting to lunar periapsis');
+      break;
+    }
+    case 'correct': {
+      sim.sas = 'manual'; sim.headingCmd = ap.corrDir; sim.warp = 1;
+      const aligned = Math.abs(angleDiff(sim.heading, ap.corrDir)) < 0.05;
+      const periAlt = el.rp - b.radius;
+      sim.throttle = aligned ? (Math.abs(periAlt - targetPeri) > 3000000 ? 0.3 : 0.05) : 0;
+      ap.info = `Trajectory correction · periapsis ${(periAlt / 1000).toFixed(0)} km`;
+      if (periAlt > targetPeri - 20000 && periAlt < targetPeri + 150000) { sim.throttle = 0; setPhase(ap, sim, 'coastperi', 'coasting to lunar periapsis'); }
+      if (dry(sim)) { sim.throttle = 0; ap.program = null; ap.info = 'Out of propellant'; }
+      break;
+    }
+    case 'coastperi': {
+      sim.throttle = 0; sim.sas = 'retrograde';
+      const vPeri = Math.sqrt(b.mu * (2 / el.rp - 1 / el.a));
+      const dv = vPeri - Math.sqrt(b.mu / el.rp);
+      const tb = burnTimeFor(sim, dv);
+      const lead = el.tPeri - tb / 2;
+      ap.info = `Coast to periapsis · capture Δv ${dv.toFixed(0)} m/s · in ${Math.max(0, lead).toFixed(0)} s`;
+      if (lead <= 0.5) { sim.warp = 1; setPhase(ap, sim, 'burn', `lunar orbit insertion burn, Δv ${dv.toFixed(0)} m/s`); }
+      else sim.warp = warpFor(lead, frameDt, 1000);
+      break;
+    }
+    case 'burn': {
+      sim.sas = 'retrograde'; sim.throttle = 1; sim.warp = 1;
+      const apoAlt = el.e < 1 ? el.ra - b.radius : Infinity;
+      ap.info = `LOI burn · ${el.e < 1 ? 'captured, apoapsis ' + (apoAlt / 1000).toFixed(0) + ' km' : 'e = ' + el.e.toFixed(2)}`;
+      if (el.e < 1 && (apoAlt <= ap.lunarTargetAlt || el.e < 0.02)) {
+        sim.throttle = 0; ap.program = null;
+        setPhase(ap, sim, 'done', `lunar orbit: ${((el.rp - b.radius) / 1000).toFixed(0)} × ${(apoAlt / 1000).toFixed(0)} km`);
+        ap.info = 'Lunar orbit achieved';
+      }
+      if (dry(sim)) { sim.throttle = 0; ap.program = null; ap.info = el.e < 1 ? 'Captured with dry tanks' : 'Out of propellant before capture'; }
+      break;
+    }
+  }
+}
+
+function autopilotTick(ap, sim, frameDt) {
+  if (!ap.program) return;
+  if (sim.status === 'crashed' || sim.status === 'landed') { ap.program = null; return; }
+  if (ap.program === PROGRAMS.ASCENT) ascent(ap, sim, frameDt);
+  else if (ap.program === PROGRAMS.TLI) tli(ap, sim, frameDt);
+  else if (ap.program === PROGRAMS.LOI) loi(ap, sim, frameDt);
+}
+
+
+// ===== src/render.js =====
+// Ozark Orbital — canvas renderer.
+
+
+
+
+function createCamera() {
+  return { zoom: 2.5, targetZoom: 2.5, mode: 'auto', cx: 0, cy: 0, followBody: false, rot: 0, targetRot: 0, snap: true };
+}
+
+function fitZoom(canvas, radiusMetres) {
+  return Math.min(canvas.width, canvas.height) / (2.3 * radiusMetres);
+}
+
+function updateCamera(cam, sim, canvas, dt) {
+  const b = body(sim);
+  const alt = Math.max(altitude(sim), 90);
+  // rotate the view so local "up" points to the top of the screen while close to the ground
+  const u = radialDir(sim);
+  const upAng = Math.atan2(u.y, u.x);
+  cam.targetRot = (cam.mode === 'auto' && sim.bodyName === 'Earth' && alt < 400000) ? Math.PI / 2 - upAng : 0;
+  if (cam.mode === 'auto') {
+    if (sim.bodyName === 'Moon') {
+      const el = elements(sim);
+      const r = el.e < 1 ? Math.max(el.ra, Math.hypot(sim.ship.x, sim.ship.y)) : Math.hypot(sim.ship.x, sim.ship.y) * 1.2;
+      cam.targetZoom = fitZoom(canvas, Math.min(r * 1.05, MOON.soi));
+      cam.followBody = true;
+    } else if (alt < 400000) {
+      cam.targetZoom = (canvas.height * 0.32) / alt;
+      cam.followBody = false;
+    } else {
+      const el = elements(sim);
+      const r = el.e < 1 ? el.ra : Math.hypot(sim.ship.x, sim.ship.y) * 1.3;
+      cam.targetZoom = fitZoom(canvas, Math.min(Math.max(r, EARTH.radius * 1.2), MOON.orbitRadius * 1.25));
+      cam.followBody = true;
+    }
+  } else if (cam.mode === 'map') {
+    const el = elements(sim);
+    let r;
+    if (sim.bodyName === 'Moon') r = Math.min(el.e < 1 ? el.ra * 1.1 : MOON.soi, MOON.soi);
+    else r = el.e < 1 ? Math.max(el.ra * 1.1, b.radius * 1.3) : MOON.orbitRadius * 1.25;
+    if (sim.bodyName === 'Earth' && el.ra > MOON.orbitRadius * 0.6) r = MOON.orbitRadius * 1.25;
+    cam.targetZoom = fitZoom(canvas, r);
+    cam.followBody = true;
+  }
+  // smooth zoom (log-space) and rotation
+  const k = 1 - Math.exp(-dt * 4);
+  let dr = cam.targetRot - cam.rot;
+  dr = ((dr + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+  cam.rot += dr * k;
+  if (cam.snap) { cam.snap = false; cam.rot = cam.targetRot; cam.zoom = cam.targetZoom; }
+  cam.zoom = Math.exp(Math.log(cam.zoom) + (Math.log(cam.targetZoom) - Math.log(cam.zoom)) * k);
+  if (cam.followBody) { cam.cx = 0; cam.cy = 0; }
+  else { cam.cx = sim.ship.x; cam.cy = sim.ship.y; }
+}
+
+const stars = [];
+function seedStars() {
+  let s = 12345;
+  const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+  for (let i = 0; i < 400; i++) stars.push([rnd(), rnd(), rnd() * 1.4 + 0.3, rnd()]);
+}
+seedStars();
+
+function render(ctx, canvas, sim, cam, ui) {
+  const W = canvas.width, H = canvas.height;
+  const b = body(sim);
+  const zoom = cam.zoom;
+  const alt = altitude(sim);
+  // world -> screen (y up), with camera rotation
+  const cr = Math.cos(cam.rot), sr = Math.sin(cam.rot);
+  const sx = (x, y) => { const dx = x - cam.cx, dy = y - cam.cy; return W / 2 + (dx * cr - dy * sr) * zoom; };
+  const sy = (y, x) => { const dx = x - cam.cx, dy = y - cam.cy; return H / 2 - (dx * sr + dy * cr) * zoom; };
+
+  // sky / space background
+  let skyMix = 0;
+  if (sim.bodyName === 'Earth') skyMix = Math.max(0, Math.min(1, 1 - alt / 90000));
+  ctx.fillStyle = '#05070f';
+  ctx.fillRect(0, 0, W, H);
+  // stars
+  ctx.save();
+  for (const [fx, fy, r, tw] of stars) {
+    const a = (0.35 + 0.65 * tw) * (1 - skyMix);
+    if (a <= 0.02) continue;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#dfe7ff';
+    ctx.fillRect(fx * W, fy * H, r, r);
+  }
+  ctx.restore();
+  if (skyMix > 0) {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, `rgba(72,132,224,${skyMix * 0.85})`);
+    g.addColorStop(1, `rgba(150,196,245,${skyMix})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+
+  // helper: draw a body (circle) whose centre in world coords is (bx,by)
+  function drawBody(bd, bx, by, isPrimary) {
+    const R = bd.radius * zoom;
+    const cxp = sx(bx, by), cyp = sy(by, bx);
+    if (R < 4000) {
+      if (bd.atmosphere) {
+        const ra = (bd.radius + bd.atmosphere.top) * zoom;
+        const g = ctx.createRadialGradient(cxp, cyp, R * 0.98, cxp, cyp, ra);
+        g.addColorStop(0, 'rgba(120,180,255,0.55)');
+        g.addColorStop(1, 'rgba(120,180,255,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, ra, 0, Math.PI * 2); ctx.fill();
+      }
+      const g2 = ctx.createRadialGradient(cxp - R * 0.3, cyp - R * 0.3, R * 0.1, cxp, cyp, R);
+      if (bd === EARTH) { g2.addColorStop(0, '#5aa0ff'); g2.addColorStop(0.7, '#1f5fc4'); g2.addColorStop(1, '#0b2c66'); }
+      else { g2.addColorStop(0, '#d8d8d0'); g2.addColorStop(0.7, '#9a9a92'); g2.addColorStop(1, '#4a4a44'); }
+      ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(cxp, cyp, Math.max(R, 2), 0, Math.PI * 2); ctx.fill();
+      if (bd === EARTH && R > 30) {
+        // a few "continents" for orientation, rotating with the planet
+        ctx.save(); ctx.translate(cxp, cyp); ctx.rotate(-(sim.padAngle + cam.rot));
+        ctx.fillStyle = 'rgba(80,160,90,0.55)';
+        const blobs = [[0.2, 0.5, 0.25], [-0.5, 0.2, 0.2], [0.1, -0.55, 0.18], [-0.2, -0.2, 0.12], [0.6, -0.1, 0.1]];
+        for (const [bx2, by2, br] of blobs) { ctx.beginPath(); ctx.arc(bx2 * R, by2 * R, br * R, 0, Math.PI * 2); ctx.fill(); }
+        ctx.restore();
+      }
+    } else {
+      // huge: draw the visible arc as a polygon
+      const ang0 = Math.atan2(cam.cy - by, cam.cx - bx);
+      const span = Math.min(Math.PI, (Math.hypot(W, H) / R) * 1.5);
+      const N = 160;
+      const pts = [];
+      for (let i = 0; i <= N; i++) {
+        const a = ang0 - span + (2 * span * i) / N;
+        { const wx = bx + bd.radius * Math.cos(a), wy = by + bd.radius * Math.sin(a); pts.push([sx(wx, wy), sy(wy, wx)]); }
+      }
+      // atmosphere band above the ground
+      if (bd.atmosphere && skyMix < 1) {
+        const top = bd.radius + bd.atmosphere.top;
+        ctx.beginPath();
+        for (let i = 0; i <= N; i++) { const a = ang0 - span + (2 * span * i) / N; const wx = bx + top * Math.cos(a), wy = by + top * Math.sin(a); const X = sx(wx, wy), Y = sy(wy, wx); if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y); }
+        for (let i = N; i >= 0; i--) ctx.lineTo(pts[i][0], pts[i][1]);
+        ctx.closePath();
+        const gg = ctx.createRadialGradient(sx(bx, by), sy(by, bx), R, sx(bx, by), sy(by, bx), top * zoom);
+        gg.addColorStop(0, `rgba(110,170,255,${0.6 * (1 - skyMix)})`); gg.addColorStop(1, 'rgba(110,170,255,0)');
+        ctx.fillStyle = gg; ctx.fill();
+      }
+      const inward = Math.hypot(W, H) * 3;
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (const p of pts) ctx.lineTo(p[0], p[1]);
+      const last = pts[pts.length - 1], first = pts[0];
+      const cxs = sx(bx, by), cys = sy(by, bx);
+      const dirIn = (p) => { const dx = cxs - p[0], dy = cys - p[1]; const d = Math.hypot(dx, dy) || 1; return [p[0] + dx / d * inward, p[1] + dy / d * inward]; };
+      const a1 = dirIn(last), a2 = dirIn(first);
+      ctx.lineTo(a1[0], a1[1]); ctx.lineTo(a2[0], a2[1]); ctx.closePath();
+      ctx.fillStyle = bd === EARTH ? '#2c5a2e' : '#7d7d76';
+      ctx.fill();
+      if (bd === EARTH) {
+        ctx.strokeStyle = '#4d8b46'; ctx.lineWidth = Math.max(2, Math.min(12, zoom * 8)); ctx.stroke();
+      }
+    }
+  }
+
+  // world objects depend on which frame we are in
+  const m = moonRel(sim);
+  if (sim.bodyName === 'Earth') {
+    // Moon orbit + SOI
+    if (MOON.orbitRadius * zoom < Math.hypot(W, H) * 2) {
+      ctx.strokeStyle = 'rgba(200,200,220,0.18)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(sx(0, 0), sy(0, 0), MOON.orbitRadius * zoom, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(200,200,220,0.25)'; ctx.beginPath(); ctx.arc(sx(m.x, m.y), sy(m.y, m.x), MOON.soi * zoom, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    }
+    drawBody(EARTH, 0, 0, true);
+    if (MOON.radius * zoom > 0.5 || MOON.orbitRadius * zoom < Math.hypot(W, H)) drawBody(MOON, m.x, m.y, false);
+    // launch pad marker
+    if (zoom > 0.002) {
+      const px = EARTH.radius * Math.cos(sim.padAngle), py = EARTH.radius * Math.sin(sim.padAngle);
+      const X = sx(px, py), Y = sy(py, px);
+      if (X > -200 && X < W + 200 && Y > -200 && Y < H + 200) {
+        ctx.save(); ctx.translate(X, Y); ctx.rotate(-(sim.padAngle + cam.rot) + Math.PI / 2);
+        const s = Math.max(1, Math.min(zoom * 1.0, 3));
+        ctx.fillStyle = '#8a8f99'; ctx.fillRect(-18 * s, -3 * s, 36 * s, 4 * s);
+        ctx.fillStyle = '#c0392b'; ctx.fillRect(12 * s, -60 * s, 5 * s, 60 * s);
+        ctx.restore();
+        if (zoom > 0.05) { ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('OZARK SPACEPORT', X, Y + 18); }
+      }
+    }
+  } else {
+    // Moon frame: Earth is at -m
+    ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(200,200,220,0.25)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(sx(0, 0), sy(0, 0), MOON.soi * zoom, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    drawBody(MOON, 0, 0, true);
+    drawBody(EARTH, -m.x, -m.y, false);
+  }
+
+  // trail
+  if (ui.trail && ui.trail.length > 1) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1; ctx.beginPath();
+    let started = false;
+    for (const p of ui.trail) {
+      if (p.body !== sim.bodyName) { started = false; continue; }
+      const X = sx(p.x, p.y), Y = sy(p.y, p.x);
+      if (!started) { ctx.moveTo(X, Y); started = true; } else ctx.lineTo(X, Y);
+    }
+    ctx.stroke();
+  }
+
+  // orbit prediction
+  const el = elements(sim);
+  if (sim.status === 'flying' && (alt > 5000 || el.ra > b.radius + 5000)) {
+    const pts = orbitPath(el, b.mu, { samples: 360, maxRadius: sim.bodyName === 'Moon' ? MOON.soi : MOON.orbitRadius * 3 });
+    ctx.strokeStyle = el.e < 1 ? 'rgba(90,220,255,0.75)' : 'rgba(255,170,80,0.8)';
+    ctx.lineWidth = 1.5; ctx.beginPath();
+    let first = true;
+    for (const [x, y] of pts) {
+      if (Math.hypot(x, y) < b.radius * 0.98 && first) continue;
+      const X = sx(x, y), Y = sy(y, x);
+      if (first) { ctx.moveTo(X, Y); first = false; } else ctx.lineTo(X, Y);
+    }
+    ctx.stroke();
+    // Ap / Pe markers
+    const dir = el.direction;
+    const mark = (r, nu, label, color) => {
+      if (!isFinite(r)) return;
+      const th = el.argPe + dir * nu;
+      const wx = r * Math.cos(th), wy = r * Math.sin(th); const X = sx(wx, wy), Y = sy(wy, wx);
+      ctx.fillStyle = color; ctx.beginPath(); ctx.arc(X, Y, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.font = '11px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.fillText(`${label} ${((r - b.radius) / 1000).toFixed(0)} km`, X + 7, Y + 4);
+    };
+    if (el.rp > b.radius) mark(el.rp, 0, 'Pe', '#9ff');
+    mark(el.ra, Math.PI, 'Ap', '#fda');
+    // lunar encounter preview
+    if (sim.bodyName === 'Earth' && el.ra > MOON.orbitRadius * 0.5 && sim.throttle === 0) {
+      const p = ui.approach || predictMoonApproach(sim);
+      if (p.dist < MOON.soi * 1.5) {
+        const mm = moonState(sim.t + p.t, sim.moonPhase0);
+        ctx.setLineDash([3, 5]); ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.arc(sx(mm.x, mm.y), sy(mm.y, mm.x), Math.max(MOON.radius * zoom, 6), 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '11px system-ui, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(`Moon at encounter · ${(p.dist / 1000).toFixed(0)} km`, sx(mm.x, mm.y), sy(mm.y, mm.x) - 12);
+      }
+    }
+  }
+
+  // ship
+  const shipX = sx(sim.ship.x, sim.ship.y), shipY = sy(sim.ship.y, sim.ship.x);
+  const v = sim.vehicle;
+  const L = vehicleLength(v) * zoom;
+  ctx.save();
+  ctx.translate(shipX, shipY);
+  ctx.rotate(-(sim.heading + cam.rot) + Math.PI / 2); // nose up in local frame
+  if (L >= 14) {
+    const s = zoom;
+    let yBottom = 0;
+    for (let i = v.stageIndex; i < v.def.stages.length; i++) {
+      const st = v.def.stages[i];
+      const w = st.width * s, h = st.length * s;
+      const yTop = yBottom - st.length;
+      ctx.fillStyle = i === v.stageIndex ? '#e8e8ee' : '#cfd3dc';
+      ctx.fillRect(-w / 2, yTop * s, w, h);
+      ctx.strokeStyle = '#4a5060'; ctx.lineWidth = Math.max(1, s * 0.3); ctx.strokeRect(-w / 2, yTop * s, w, h);
+      if (i === 0) { // fins
+        ctx.fillStyle = '#3b4252'; ctx.beginPath(); ctx.moveTo(-w / 2, yBottom * s); ctx.lineTo(-w / 2 - 1.5 * s, yBottom * s); ctx.lineTo(-w / 2, (yBottom - 6) * s); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(w / 2, yBottom * s); ctx.lineTo(w / 2 + 1.5 * s, yBottom * s); ctx.lineTo(w / 2, (yBottom - 6) * s); ctx.fill();
+      }
+      if (i === v.def.stages.length - 1) { // nose
+        ctx.fillStyle = '#d64545'; ctx.beginPath(); ctx.moveTo(-w / 2, yTop * s); ctx.lineTo(0, (yTop - 4) * s); ctx.lineTo(w / 2, yTop * s); ctx.fill();
+      }
+      yBottom = yTop;
+    }
+    // flame
+    const st = stage(v);
+    if (sim.throttle > 0 && st && v.prop[v.stageIndex] > 0) {
+      const w = st.width * s;
+      const flick = 0.8 + Math.random() * 0.4;
+      const fl = (st.length * 0.9) * sim.throttle * s * flick;
+      const g = ctx.createLinearGradient(0, 0, 0, fl);
+      g.addColorStop(0, 'rgba(255,240,180,0.95)'); g.addColorStop(0.4, 'rgba(255,140,40,0.8)'); g.addColorStop(1, 'rgba(255,60,0,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(-w * 0.45, 0); ctx.lineTo(0, fl); ctx.lineTo(w * 0.45, 0); ctx.fill();
+    }
+  } else {
+    // icon
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(6, 8); ctx.lineTo(0, 4); ctx.lineTo(-6, 8); ctx.closePath(); ctx.fill();
+    if (sim.throttle > 0 && stage(v) && v.prop[v.stageIndex] > 0) { ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.moveTo(-3, 7); ctx.lineTo(0, 16 + Math.random() * 6); ctx.lineTo(3, 7); ctx.fill(); }
+  }
+  ctx.restore();
+
+  // navball-ish heading indicator (bottom-centre)
+  drawNavball(ctx, sim, W, H, ui);
+}
+
+function drawNavball(ctx, sim, W, H, ui) {
+  const r = 34, cx = W / 2, cy = H - 92;
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = 'rgba(10,14,28,0.8)'; ctx.beginPath(); ctx.arc(cx, cy, r + 4, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  const u = radialDir(sim); const up = Math.atan2(u.y, u.x);
+  const b = body(sim);
+  const pro = progradeAngle(sim, altitude(sim) < (b.atmosphere ? b.atmosphere.top : 0));
+  const put = (ang, color, size, label) => {
+    // display relative so that "up" (radial out) is at top
+    const rel = ang - up + Math.PI / 2;
+    const X = cx + Math.cos(rel) * (r - 6), Y = cy - Math.sin(rel) * (r - 6);
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(X, Y, size, 0, Math.PI * 2); ctx.fill();
+    if (label) { ctx.font = '9px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(label, X, Y - 6); }
+  };
+  // horizon line
+  ctx.strokeStyle = 'rgba(120,200,255,0.5)'; ctx.beginPath(); ctx.moveTo(cx - r, cy); ctx.lineTo(cx + r, cy); ctx.stroke();
+  put(pro, '#7fe0a0', 4, 'PRO');
+  put(pro + Math.PI, '#ff8a80', 4, 'RET');
+  // heading needle
+  const rel = sim.heading - up + Math.PI / 2;
+  ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(rel) * r, cy - Math.sin(rel) * r); ctx.stroke();
+  ctx.restore();
+}
+
+
+// ===== src/missions.js =====
+// Ozark Orbital — mission definitions and completion checks.
+
+
+const MISSIONS = [
+  {
+    id: 'karman', title: '1 · Kármán Line', goal: 'Climb above 100 km altitude.',
+    hint: 'Full throttle (Z), keep SAS on UP (2). Stage with SPACE when the booster runs dry. Or press the ASCENT autopilot and watch how it is done.',
+    check: (s) => s.body === 'Earth' && s.alt > 100000,
+  },
+  {
+    id: 'orbit', title: '2 · Ozark Orbit', goal: 'Reach Earth orbit: periapsis above 150 km.',
+    hint: 'Pitch east gradually as you climb (right arrow). Cut the engine when apoapsis reads ~200 km, coast to Ap, then burn PROGRADE (3) until periapsis rises above 150 km.',
+    check: (s) => s.body === 'Earth' && s.periAlt > 150000 && s.status === 'flying',
+  },
+  {
+    id: 'circular', title: '3 · Perfect Circle', goal: 'Circular Earth orbit: periapsis above 180 km, eccentricity below 0.01.',
+    hint: 'Fine-tune at apoapsis with short prograde/retrograde pulses. The ASCENT autopilot targets a 200 km circular orbit.',
+    check: (s) => s.body === 'Earth' && s.periAlt > 180000 && s.e < 0.01 && s.status === 'flying',
+  },
+  {
+    id: 'moonshot', title: '4 · Moonshot', goal: "Enter the Moon's sphere of influence.",
+    hint: 'From a low circular orbit, wait until the Moon is ~115° ahead of you, then burn prograde until apoapsis reaches ~400,000 km. Warp and watch the encounter marker. The TLI autopilot computes the window for you.',
+    check: (s) => s.body === 'Moon',
+  },
+  {
+    id: 'lunarorbit', title: '5 · Lunar Orbit', goal: 'Capture into orbit around the Moon (periapsis above 20 km, apoapsis below 1,500 km).',
+    hint: 'Inside the Moon SOI, warp to periapsis, then burn RETROGRADE (4) until the orbit closes and apoapsis drops. The LOI autopilot also corrects a bad periapsis first.',
+    check: (s) => s.body === 'Moon' && s.e < 1 && s.periAlt > 20000 && s.apoAlt < 1500000 && s.status === 'flying',
+  },
+];
+
+function loadProgress() {
+  try { return JSON.parse(localStorage.getItem('ozark-orbital-progress') || '{}'); } catch { return {}; }
+}
+function saveProgress(p) {
+  try { localStorage.setItem('ozark-orbital-progress', JSON.stringify(p)); } catch { /* ignore */ }
+}
+
+/** Returns the list of newly completed mission ids this tick. */
+function checkMissions(sim, done) {
+  const s = summary(sim);
+  const newly = [];
+  for (const m of MISSIONS) {
+    if (done[m.id]) continue;
+    if (m.check(s)) { done[m.id] = { met: s.met }; newly.push(m.id); }
+  }
+  return newly;
+}
+
+
+// ===== src/game.js =====
+// Ozark Orbital — game shell: loop, input, HUD, missions.
+
+
+
+
+
+
+const WARPS = [1, 2, 5, 10, 50, 100, 1000, 10000, 100000];
+
+function fmtTime(s) {
+  if (!isFinite(s)) return '—';
+  s = Math.max(0, Math.round(s));
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m ${String(sec).padStart(2, '0')}s`;
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+function fmtKm(m) { if (!isFinite(m)) return '∞'; const k = m / 1000; return k >= 10000 ? `${(k / 1000).toFixed(1)}k km` : `${k.toFixed(k < 100 ? 1 : 0)} km`; }
+
+function init() {
+  const canvas = document.getElementById('view');
+  const ctx = canvas.getContext('2d');
+  const $ = (id) => document.getElementById(id);
+
+  const state = {
+    sim: createSim(),
+    ap: createAutopilot(),
+    cam: createCamera(),
+    ui: { trail: [], approach: null, toast: [], paused: false },
+    keys: {},
+    mission: MISSIONS[0],
+    done: loadProgress(),
+    completedThisFlight: {},
+    lastHud: 0,
+    lastApproach: 0,
+  };
+  window.ozark = state; // for curious people in the console
+
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.floor(canvas.clientWidth * dpr);
+    canvas.height = Math.floor(canvas.clientHeight * dpr);
+  }
+  window.addEventListener('resize', resize); resize();
+
+  function toast(text, ms = 3500) {
+    const el = document.createElement('div'); el.className = 'toast'; el.textContent = text;
+    $('toasts').appendChild(el);
+    setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 400); }, ms);
+  }
+
+  function newFlight() {
+    state.sim = createSim();
+    state.ap = createAutopilot();
+    state.cam = createCamera();
+    state.ui.trail = []; state.ui.approach = null;
+    state.completedThisFlight = {};
+    $('overlay').hidden = true;
+    state.ui.paused = false;
+  }
+
+  // ---------- controls ----------
+  function setWarp(dir) {
+    const s = state.sim;
+    let i = WARPS.indexOf(s.warp); if (i < 0) i = 0;
+    i = Math.max(0, Math.min(WARPS.length - 1, i + dir));
+    s.warp = WARPS[i];
+    toast(`Time warp ${s.warp}×`, 1200);
+  }
+  function setThrottle(v) { state.sim.throttle = Math.max(0, Math.min(1, v)); }
+  function setSas(mode) { state.sim.sas = mode; if (mode === 'manual') state.sim.headingCmd = state.sim.heading; updateSasButtons(); }
+  function updateSasButtons() { for (const b of document.querySelectorAll('[data-sas]')) b.classList.toggle('on', b.dataset.sas === state.sim.sas); }
+  function stageOrLaunch() {
+    const s = state.sim;
+    if (s.status === 'pad') { launch(s); toast('Liftoff!'); }
+    else if (s.status === 'flying') { if (doStage(s)) toast('Stage separation'); else toast('No stages left', 1500); }
+  }
+  function autopilot(program) {
+    const s = state.sim, ap = state.ap;
+    if (!program) { stopAutopilot(ap, s); toast('Autopilot off', 1500); return; }
+    if (program === PROGRAMS.TLI && s.bodyName !== 'Earth') { toast('TLI only works from Earth orbit', 2500); return; }
+    if (program === PROGRAMS.LOI && s.bodyName !== 'Moon') { toast("LOI needs to be inside the Moon's sphere of influence", 2500); return; }
+    if (program === PROGRAMS.ASCENT && s.status !== 'pad' && altitude(s) > 150000) { toast('ASCENT is for launch; you are already up here', 2500); return; }
+    startProgram(ap, s, program);
+    toast(`Autopilot: ${program.toUpperCase()}`);
+  }
+  function setCamMode(mode) { state.cam.mode = mode; for (const b of document.querySelectorAll('[data-cam]')) b.classList.toggle('on', b.dataset.cam === mode); }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+    state.keys[e.code] = true;
+    const s = state.sim;
+    switch (e.code) {
+      case 'Space': e.preventDefault(); stageOrLaunch(); break;
+      case 'KeyZ': setThrottle(1); break;
+      case 'KeyX': setThrottle(0); break;
+      case 'Digit1': setSas('manual'); break;
+      case 'Digit2': setSas('up'); break;
+      case 'Digit3': setSas('prograde'); break;
+      case 'Digit4': setSas('retrograde'); break;
+      case 'Comma': setWarp(-1); break;
+      case 'Period': setWarp(1); break;
+      case 'KeyM': setCamMode(state.cam.mode === 'map' ? 'auto' : 'map'); break;
+      case 'KeyF': setCamMode('auto'); break;
+      case 'KeyP': state.ui.paused = !state.ui.paused; toast(state.ui.paused ? 'Paused' : 'Resumed', 1000); break;
+      case 'KeyA': case 'KeyT': autopilot(s.status === 'pad' || altitude(s) < 150000 ? PROGRAMS.ASCENT : (s.bodyName === 'Moon' ? PROGRAMS.LOI : PROGRAMS.TLI)); break;
+      case 'Escape': stopAutopilot(state.ap, s); break;
+      case 'Equal': case 'NumpadAdd': setCamMode('manual'); state.cam.targetZoom *= 1.6; break;
+      case 'Minus': case 'NumpadSubtract': setCamMode('manual'); state.cam.targetZoom /= 1.6; break;
+      case 'ArrowLeft': case 'ArrowRight': case 'ArrowUp': case 'ArrowDown': e.preventDefault(); break;
+    }
+  });
+  window.addEventListener('keyup', (e) => { state.keys[e.code] = false; });
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    setCamMode('manual');
+    state.cam.targetZoom *= Math.pow(1.15, -Math.sign(e.deltaY));
+    state.cam.targetZoom = Math.max(1e-7, Math.min(20, state.cam.targetZoom));
+  }, { passive: false });
+
+  // on-screen buttons
+  document.querySelectorAll('[data-action]').forEach((btn) => {
+    const act = btn.dataset.action;
+    const hold = (code) => {
+      const down = (e) => { e.preventDefault(); state.keys[code] = true; btn.classList.add('on'); };
+      const up = () => { state.keys[code] = false; btn.classList.remove('on'); };
+      btn.addEventListener('pointerdown', down); btn.addEventListener('pointerup', up); btn.addEventListener('pointerleave', up); btn.addEventListener('pointercancel', up);
+    };
+    if (act === 'left') return hold('ArrowLeft');
+    if (act === 'right') return hold('ArrowRight');
+    if (act === 'thr-up') return hold('ShiftLeft');
+    if (act === 'thr-down') return hold('ControlLeft');
+    btn.addEventListener('click', () => {
+      switch (act) {
+        case 'stage': stageOrLaunch(); break;
+        case 'full': setThrottle(1); break;
+        case 'cut': setThrottle(0); break;
+        case 'warp-': setWarp(-1); break;
+        case 'warp+': setWarp(1); break;
+        case 'ap-ascent': autopilot(PROGRAMS.ASCENT); break;
+        case 'ap-tli': autopilot(PROGRAMS.TLI); break;
+        case 'ap-loi': autopilot(PROGRAMS.LOI); break;
+        case 'ap-off': autopilot(null); break;
+        case 'new': showMissionSelect(); break;
+        case 'zoom-in': setCamMode('manual'); state.cam.targetZoom *= 1.6; break;
+        case 'zoom-out': setCamMode('manual'); state.cam.targetZoom /= 1.6; break;
+        case 'help': $('help').hidden = !$('help').hidden; break;
+      }
+    });
+  });
+  document.querySelectorAll('[data-sas]').forEach((b) => b.addEventListener('click', () => setSas(b.dataset.sas)));
+  document.querySelectorAll('[data-cam]').forEach((b) => b.addEventListener('click', () => setCamMode(b.dataset.cam)));
+  updateSasButtons(); setCamMode('auto');
+
+  // ---------- mission select ----------
+  function showMissionSelect() {
+    const ov = $('overlay');
+    ov.hidden = false;
+    state.ui.paused = true;
+    const list = MISSIONS.map((m) => `
+      <button class="mission ${state.done[m.id] ? 'done' : ''}" data-mission="${m.id}">
+        <div class="mt">${m.title} ${state.done[m.id] ? '<span class="badge">✓ ' + fmtTime(state.done[m.id].met) + '</span>' : ''}</div>
+        <div class="mg">${m.goal}</div>
+      </button>`).join('');
+    ov.innerHTML = `
+      <div class="card">
+        <h1>Ozark Orbital</h1>
+        <p class="sub">A real-physics rocket and orbital mechanics game. Launch a Falcon-class rocket from the Ozarks, reach orbit, and fly to the Moon. Real gravity, real drag, real rocket equation. Every number on the HUD is honest.</p>
+        <div class="missions">${list}</div>
+        <p class="tiny">Progress is saved in this browser. Press <b>?</b> in flight for controls.</p>
+      </div>`;
+    ov.querySelectorAll('[data-mission]').forEach((b) => b.addEventListener('click', () => {
+      state.mission = MISSIONS.find((m) => m.id === b.dataset.mission);
+      newFlight();
+      toast(`${state.mission.title}: ${state.mission.goal}`, 5000);
+    }));
+  }
+
+  function showComplete(m) {
+    const ov = $('overlay');
+    ov.hidden = false;
+    const next = MISSIONS[MISSIONS.indexOf(m) + 1];
+    const s = summary(state.sim);
+    ov.innerHTML = `
+      <div class="card">
+        <h1>Mission complete</h1>
+        <h2>${m.title}</h2>
+        <p class="sub">${m.goal}</p>
+        <div class="stats">
+          <div><span>MET</span><b>${fmtTime(s.met)}</b></div>
+          <div><span>Orbit</span><b>${fmtKm(s.periAlt)} × ${fmtKm(s.apoAlt)}</b></div>
+          <div><span>Δv left</span><b>${s.dv.toFixed(0)} m/s</b></div>
+          <div><span>Max-Q</span><b>${(state.sim.maxQ / 1000).toFixed(1)} kPa</b></div>
+        </div>
+        <div class="row">
+          <button data-continue>Keep flying</button>
+          ${next ? `<button data-next class="primary">Next: ${next.title}</button>` : '<button data-menu class="primary">Mission list</button>'}
+        </div>
+      </div>`;
+    ov.querySelector('[data-continue]').addEventListener('click', () => { ov.hidden = true; state.ui.paused = false; });
+    const n = ov.querySelector('[data-next]'); if (n) n.addEventListener('click', () => { state.mission = next; ov.hidden = true; state.ui.paused = false; toast(`${next.title}: ${next.goal}`, 5000); });
+    const mm = ov.querySelector('[data-menu]'); if (mm) mm.addEventListener('click', showMissionSelect);
+  }
+
+  function showEnd(title, text) {
+    const ov = $('overlay');
+    ov.hidden = false;
+    ov.innerHTML = `<div class="card"><h1>${title}</h1><p class="sub">${text}</p><div class="row"><button data-menu class="primary">Back to the pad</button></div></div>`;
+    ov.querySelector('[data-menu]').addEventListener('click', showMissionSelect);
+  }
+
+  // ---------- HUD ----------
+  function hud() {
+    const s = state.sim, ap = state.ap;
+    const sum = summary(s);
+    const b = body(s);
+    $('t-met').textContent = fmtTime(sum.met);
+    $('t-body').textContent = sum.body;
+    const onPad = s.status === 'pad' || (sum.alt < 2000 && sum.apoAlt < 5000);
+    $('t-alt').textContent = fmtKm(Math.max(0, sum.alt));
+    $('t-speed').textContent = `${sum.speed.toFixed(0)} m/s`;
+    $('t-vspeed').textContent = `${sum.vertSpeed.toFixed(0)} m/s`;
+    $('t-apo').textContent = onPad ? '—' : fmtKm(sum.apoAlt);
+    $('t-peri').textContent = onPad ? '—' : fmtKm(sum.periAlt);
+    $('t-tapo').textContent = onPad ? '—' : fmtTime(sum.tApo);
+    $('t-tperi').textContent = onPad ? '—' : fmtTime(sum.tPeri);
+    $('t-dv').textContent = `${sum.dv.toFixed(0)} m/s`;
+    $('t-warp').textContent = `${sum.warp}× ${sum.onRails ? '(rails)' : ''}`;
+    $('t-stage').textContent = sum.stage ? `${sum.stage.name} · ${stagesLeft(s.vehicle)} left` : '—';
+    $('t-prop').style.width = `${sum.stage ? (100 * sum.prop / sum.stage.prop) : 0}%`;
+    $('t-thr').style.width = `${s.throttle * 100}%`;
+    $('t-thrv').textContent = `${(s.throttle * 100).toFixed(0)}%`;
+    $('t-e').textContent = onPad ? '—' : sum.e.toFixed(3);
+    $('t-q').textContent = `${(s.maxQ / 1000).toFixed(1)} kPa`;
+    let extra = '';
+    if (s.bodyName === 'Earth' && sum.periAlt > 100000 && sum.e < 0.2) {
+      extra = `Moon phase angle ${(moonPhaseAngle(s) * 180 / Math.PI).toFixed(1)}° · ideal TLI lead ${(requiredLeadAngle(s) * 180 / Math.PI).toFixed(1)}°`;
+    } else if (s.bodyName === 'Earth' && sum.apoAlt > MOON.orbitRadius * 0.5 && state.ui.approach) {
+      extra = `Closest lunar approach ${fmtKm(state.ui.approach.dist)} in ${fmtTime(state.ui.approach.t)}`;
+    }
+    $('t-extra').textContent = extra;
+    $('ap-status').textContent = ap.program ? `AUTOPILOT ${ap.program.toUpperCase()} · ${ap.info || ap.phase}` : (ap.info || 'Autopilot off');
+    $('ap-status').classList.toggle('active', !!ap.program);
+    $('m-title').textContent = state.mission.title;
+    $('m-goal').textContent = state.mission.goal;
+    $('m-hint').textContent = state.mission.hint;
+    $('m-done').textContent = state.done[state.mission.id] ? '✓ completed' : '';
+    const log = s.log.slice(-6).map((e) => `<div><span>T+${fmtTime(e.t)}</span>${e.text}</div>`).join('');
+    $('log').innerHTML = log;
+    $('b-stage').textContent = s.status === 'pad' ? 'LAUNCH' : 'STAGE';
+  }
+
+  // ---------- main loop ----------
+  let last = performance.now();
+  function frame(now) {
+    let dt = Math.min(0.05, (now - last) / 1000); last = now;
+    const s = state.sim, ap = state.ap, k = state.keys;
+    if (!state.ui.paused) {
+      // manual inputs
+      if (k.ArrowLeft || k.ArrowRight) {
+        if (s.sas !== 'manual') { s.sas = 'manual'; s.headingCmd = s.heading; updateSasButtons(); }
+        if (ap.program) stopAutopilot(ap, s);
+        s.headingCmd += (k.ArrowLeft ? 1 : -1) * 1.2 * dt;
+      }
+      if (k.ShiftLeft || k.ShiftRight) s.throttle = Math.min(1, s.throttle + 0.8 * dt);
+      if (k.ControlLeft || k.ControlRight) s.throttle = Math.max(0, s.throttle - 0.8 * dt);
+      autopilotTick(ap, s, dt);
+      step(s, dt);
+      // trail
+      const tr = state.ui.trail;
+      const lastP = tr[tr.length - 1];
+      if (s.status === 'flying' && (!lastP || lastP.body !== s.bodyName || Math.hypot(lastP.x - s.ship.x, lastP.y - s.ship.y) * state.cam.zoom > 3)) {
+        tr.push({ x: s.ship.x, y: s.ship.y, body: s.bodyName });
+        if (tr.length > 1500) tr.shift();
+      }
+      // lunar approach prediction (cheap enough at 2 Hz)
+      if (s.bodyName === 'Earth' && now - state.lastApproach > 500) {
+        state.lastApproach = now;
+        const sum = summary(s);
+        state.ui.approach = sum.apoAlt > MOON.orbitRadius * 0.5 && s.throttle === 0 ? predictMoonApproach(s) : null;
+      }
+      // missions
+      const newly = checkMissions(s, state.completedThisFlight);
+      for (const id of newly) {
+        const m = MISSIONS.find((x) => x.id === id);
+        if (!state.done[id]) { state.done[id] = { met: s.met }; saveProgress(state.done); }
+        if (m === state.mission) { showComplete(m); state.ui.paused = true; }
+        else toast(`Bonus: ${m.title} achieved`, 3000);
+      }
+      if (s.status === 'crashed' && !state.ui.ended) { state.ui.ended = true; showEnd('Rapid unscheduled disassembly', s.log[s.log.length - 1].text + '. Every failure is data. Try again.'); }
+      if (s.status === 'landed' && !state.ui.ended) { state.ui.ended = true; showEnd('Touchdown', 'The vehicle came back down in one piece. Nice.'); }
+      if (s.status === 'flying') state.ui.ended = false;
+    }
+    updateCamera(state.cam, s, canvas, dt);
+    render(ctx, canvas, s, state.cam, state.ui);
+    if (now - state.lastHud > 100) { state.lastHud = now; hud(); }
+    requestAnimationFrame(frame);
+  }
+  showMissionSelect();
+  requestAnimationFrame(frame);
+}
+
+init();
+
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "ozark-orbital",
+  "version": "0.1.0",
+  "description": "A real-physics rocket and orbital mechanics game: launch from the Ozarks, reach orbit, fly to the Moon.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "build": "node scripts/build.mjs",
+    "headless": "node scripts/headless.mjs moon",
+    "serve": "python3 -m http.server 8080"
+  }
+}

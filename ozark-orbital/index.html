@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ozark Orbital</title>
+<style>
+  :root { --bg:#05070f; --panel:rgba(8,12,26,0.78); --line:rgba(255,255,255,0.12); --fg:#e8ecf6; --dim:#9aa4bd; --accent:#ffd166; --cyan:#5fe0ff; --green:#7fe0a0; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:14px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; overflow:hidden; }
+  #view { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+  .panel { position:fixed; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px; backdrop-filter: blur(8px); }
+  #mission { left:12px; top:12px; width:min(330px, calc(100vw - 24px)); }
+  #mission h3 { margin:0 0 2px; font-size:14px; letter-spacing:.04em; color:var(--accent); }
+  #mission .goal { font-weight:600; }
+  #mission .hint { color:var(--dim); font-size:12px; margin-top:4px; }
+  #mission .done { color:var(--green); font-size:12px; }
+  #ap-status { margin-top:8px; font-size:12px; color:var(--dim); border-top:1px solid var(--line); padding-top:6px; }
+  #ap-status.active { color:var(--cyan); }
+  #telemetry { right:12px; top:12px; width:min(300px, calc(100vw - 24px)); font-variant-numeric: tabular-nums; }
+  #telemetry .grid { display:grid; grid-template-columns: auto 1fr; gap:2px 10px; font-size:12.5px; }
+  #telemetry .grid span { color:var(--dim); }
+  #telemetry .grid b { font-weight:600; text-align:right; }
+  .bar { height:6px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden; margin-top:3px; }
+  .bar i { display:block; height:100%; background:var(--green); width:0; transition: width .15s; }
+  .bar.thr i { background:var(--accent); }
+  #t-extra { color:var(--cyan); font-size:12px; margin-top:6px; min-height:1em; }
+  #log { left:12px; bottom:118px; width:min(360px, calc(100vw - 24px)); font-size:11.5px; color:var(--dim); max-height:120px; overflow:hidden; }
+  #log span { color:var(--accent); margin-right:6px; }
+  #controls { position:fixed; left:0; right:0; bottom:0; padding:8px 10px calc(8px + env(safe-area-inset-bottom)); display:flex; flex-wrap:wrap; gap:6px; justify-content:center; background:linear-gradient(transparent, rgba(5,7,15,0.9) 30%); }
+  .group { display:flex; gap:4px; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:4px; }
+  .group label { font-size:10px; color:var(--dim); padding:0 4px; letter-spacing:.06em; }
+  button { font:inherit; color:var(--fg); background:rgba(255,255,255,0.06); border:1px solid var(--line); border-radius:7px; padding:7px 10px; cursor:pointer; font-size:12.5px; min-width:38px; user-select:none; -webkit-user-select:none; }
+  button:hover { background:rgba(255,255,255,0.12); }
+  button.on { background:rgba(95,224,255,0.22); border-color:var(--cyan); }
+  button.big { background:rgba(255,209,102,0.2); border-color:var(--accent); font-weight:700; min-width:82px; }
+  #toasts { position:fixed; left:50%; top:14px; transform:translateX(-50%); display:flex; flex-direction:column; gap:6px; align-items:center; pointer-events:none; z-index:5; }
+  .toast { background:rgba(8,12,26,0.92); border:1px solid var(--line); border-left:3px solid var(--accent); padding:8px 14px; border-radius:8px; font-size:13px; animation: in .25s ease-out; max-width:min(560px, 90vw); }
+  .toast.out { opacity:0; transition:opacity .4s; }
+  @keyframes in { from { transform:translateY(-8px); opacity:0; } to { transform:none; opacity:1; } }
+  #overlay { position:fixed; inset:0; background:rgba(3,5,12,0.72); display:flex; align-items:center; justify-content:center; z-index:10; padding:16px; overflow:auto; }
+  #overlay[hidden] { display:none; }
+  .card { background:#0b1022; border:1px solid var(--line); border-radius:14px; padding:22px 24px; width:min(640px, 100%); box-shadow:0 20px 60px rgba(0,0,0,0.6); }
+  .card h1 { margin:0 0 4px; font-size:26px; letter-spacing:.02em; }
+  .card h2 { margin:0 0 6px; font-size:18px; color:var(--accent); }
+  .card .sub { color:var(--dim); margin:0 0 14px; }
+  .card .tiny { color:var(--dim); font-size:12px; margin:12px 0 0; }
+  .missions { display:grid; gap:8px; }
+  .mission { text-align:left; padding:10px 12px; display:block; }
+  .mission .mt { font-weight:700; }
+  .mission .mg { color:var(--dim); font-size:12.5px; }
+  .mission.done { border-color:rgba(127,224,160,0.5); }
+  .badge { color:var(--green); font-weight:500; font-size:12px; margin-left:6px; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:8px; margin:6px 0 16px; }
+  .stats div { background:rgba(255,255,255,0.05); border-radius:8px; padding:8px 10px; }
+  .stats span { display:block; color:var(--dim); font-size:11px; }
+  .stats b { font-size:15px; }
+  .row { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+  button.primary { background:rgba(255,209,102,0.25); border-color:var(--accent); font-weight:700; }
+  #help { right:12px; top:calc(12px + 330px); width:min(300px, calc(100vw - 24px)); font-size:12px; color:var(--dim); z-index:4; }
+  #help b { color:var(--fg); }
+  #help table { border-collapse:collapse; width:100%; }
+  #help td { padding:2px 4px; vertical-align:top; }
+  @media (max-width: 720px) {
+    body { font-size:12px; }
+    .panel { padding:7px 9px; border-radius:8px; }
+    #mission { width:min(190px, 48vw); }
+    #mission h3 { font-size:12px; }
+    #mission .goal { font-size:12px; }
+    #mission .hint, #mission .done { display:none; }
+    #ap-status { font-size:11px; margin-top:5px; padding-top:4px; }
+    #telemetry { width:min(180px, 48vw); }
+    #telemetry .grid { font-size:11px; gap:0 8px; }
+    #t-extra { font-size:11px; }
+    #log { display:none; }
+    #help { top:12px; }
+    #controls { gap:4px; padding:6px 6px calc(6px + env(safe-area-inset-bottom)); }
+    .group { padding:3px; gap:3px; border-radius:8px; }
+    .group label { display:none; }
+    button { padding:6px 7px; font-size:11.5px; min-width:32px; border-radius:6px; }
+    button.big { min-width:64px; }
+    #toasts { top:auto; bottom:190px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div id="mission" class="panel">
+  <h3 id="m-title">Mission</h3>
+  <div class="goal" id="m-goal"></div>
+  <div class="hint" id="m-hint"></div>
+  <div class="done" id="m-done"></div>
+  <div id="ap-status">Autopilot off</div>
+</div>
+
+<div id="telemetry" class="panel">
+  <div class="grid">
+    <span>MET</span><b id="t-met">00:00</b>
+    <span>Body</span><b id="t-body">Earth</b>
+    <span>Altitude</span><b id="t-alt">0</b>
+    <span>Speed</span><b id="t-speed">0</b>
+    <span>Vertical</span><b id="t-vspeed">0</b>
+    <span>Apoapsis</span><b id="t-apo">—</b>
+    <span>Periapsis</span><b id="t-peri">—</b>
+    <span>Time to Ap</span><b id="t-tapo">—</b>
+    <span>Time to Pe</span><b id="t-tperi">—</b>
+    <span>Eccentricity</span><b id="t-e">—</b>
+    <span>Δv remaining</span><b id="t-dv">—</b>
+    <span>Max-Q</span><b id="t-q">—</b>
+    <span>Warp</span><b id="t-warp">1×</b>
+  </div>
+  <div style="margin-top:6px;font-size:12px;color:var(--dim)" id="t-stage"></div>
+  <div class="bar"><i id="t-prop"></i></div>
+  <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-top:5px"><span>Throttle</span><span id="t-thrv">0%</span></div>
+  <div class="bar thr"><i id="t-thr"></i></div>
+  <div id="t-extra"></div>
+</div>
+
+<div id="log" class="panel"></div>
+
+<div id="help" class="panel" hidden>
+  <b>Controls</b>
+  <table>
+    <tr><td><b>Space</b></td><td>Launch / stage</td></tr>
+    <tr><td><b>Z / X</b></td><td>Full throttle / cut</td></tr>
+    <tr><td><b>Shift / Ctrl</b></td><td>Throttle up / down</td></tr>
+    <tr><td><b>← →</b></td><td>Rotate (manual attitude)</td></tr>
+    <tr><td><b>1 2 3 4</b></td><td>SAS: manual · up · prograde · retrograde</td></tr>
+    <tr><td><b>, .</b></td><td>Time warp down / up (physics warp caps at 10× while burning or in air)</td></tr>
+    <tr><td><b>A</b></td><td>Autopilot for the current phase (ascent / TLI / LOI)</td></tr>
+    <tr><td><b>Esc</b></td><td>Autopilot off</td></tr>
+    <tr><td><b>M / F</b></td><td>Map view / follow view</td></tr>
+    <tr><td><b>+ − / wheel</b></td><td>Zoom</td></tr>
+    <tr><td><b>P</b></td><td>Pause</td></tr>
+  </table>
+</div>
+
+<div id="toasts"></div>
+
+<div id="controls">
+  <div class="group"><button class="big" data-action="stage" id="b-stage">LAUNCH</button></div>
+  <div class="group"><label>THR</label><button data-action="cut">0</button><button data-action="thr-down">−</button><button data-action="thr-up">+</button><button data-action="full">100</button></div>
+  <div class="group"><label>ATT</label><button data-action="left">↶</button><button data-action="right">↷</button><button data-sas="manual">MAN</button><button data-sas="up">UP</button><button data-sas="prograde">PRO</button><button data-sas="retrograde">RET</button></div>
+  <div class="group"><label>AUTO</label><button data-action="ap-ascent">ASCENT</button><button data-action="ap-tli">TLI</button><button data-action="ap-loi">LOI</button><button data-action="ap-off">OFF</button></div>
+  <div class="group"><label>WARP</label><button data-action="warp-">◀</button><button data-action="warp+">▶</button></div>
+  <div class="group"><label>VIEW</label><button data-cam="auto">FOLLOW</button><button data-cam="map">MAP</button><button data-action="zoom-out">−</button><button data-action="zoom-in">+</button></div>
+  <div class="group"><button data-action="help">?</button><button data-action="new">MISSIONS</button></div>
+</div>
+
+<div id="overlay" hidden></div>
+<script type="module" src="src/game.js"></script>
+</body>
+</html>
