@@ -692,7 +692,7 @@ export class PlayerController {
     const pad = readGamepad(pollGamepadPad(st));
     this.pad = pad;
     const merged = mergeActions(keyActs, mouseActs, pad.actions);
-    this.edges = actionEdges(this.prevActions, merged);
+    this.edges = actionEdges(this.actions, merged);
     this.prevActions = this.actions;
     this.actions = merged;
 

@@ -526,9 +526,19 @@ async function main() {
   // POIs
   // -------------------------------------------------------------------------
 
+  // Named-feature search. Excludes plain roads by default (a street can be named after
+  // the business it runs past — e.g. "North Walmart Drive" — which is not the business
+  // itself); pass `requireAnyTag` to further restrict to features carrying one of those
+  // tag keys (e.g. ['shop'] so only an actual shop=* feature named "Walmart" matches,
+  // not an incidentally-named road or parking aisle).
   function findByName(re, opts = {}) {
-    const matches = poiCandidates.filter((c) => c.tags.name && re.test(c.tags.name));
+    let matches = poiCandidates.filter((c) => c.tags.name && re.test(c.tags.name));
+    if (!opts.allowRoads) matches = matches.filter((c) => !c.tags.highway);
+    if (opts.requireAnyTag) matches = matches.filter((c) => opts.requireAnyTag.some((k) => c.tags[k] !== undefined));
     if (opts.preferTag) matches.sort((a, b) => (b.tags[opts.preferTag] ? 1 : 0) - (a.tags[opts.preferTag] ? 1 : 0));
+    // Prefer an actual closed building/area (has meaningful `area`) over a bare POI node,
+    // when both exist, since a building centroid is a better in-game marker position.
+    matches.sort((a, b) => (b.area || 0) - (a.area || 0));
     return matches[0];
   }
 
@@ -799,10 +809,10 @@ async function main() {
     return {
       origin: { lat: LAT0, lon: LON0 },
       bbox: {
-        minX: Math.floor(PLAY_BOX.minX / 10) * 10,
-        maxX: Math.ceil(PLAY_BOX.maxX / 10) * 10,
-        minZ: Math.floor(PLAY_BOX.minZ / 10) * 10,
-        maxZ: Math.ceil(PLAY_BOX.maxZ / 10) * 10,
+        minX: Math.floor(minX / 10) * 10,
+        maxX: Math.ceil(maxX / 10) * 10,
+        minZ: Math.floor(minZ / 10) * 10,
+        maxZ: Math.ceil(maxZ / 10) * 10,
       },
       roads: roadsIn,
       buildings: buildingsIn,

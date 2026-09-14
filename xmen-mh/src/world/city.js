@@ -969,3 +969,370 @@ export function addSteeple(mb, cx, cz, baseY, towerH = 7, color = null) {
   mb.addBox(cx, topY + 5.7, cz, 0.9, 0.16, 0.16, color, 1);
   return topY + 6.1;
 }
+
+/* ================================================================== *
+ * 7. road classes
+ * ================================================================== */
+
+export const ROAD_CLASS = {
+  primary:     { lift: 0.16, width: 14, sidewalk: true,  dash: true,  lamps: true,  parking: false },
+  secondary:   { lift: 0.14, width: 11, sidewalk: true,  dash: true,  lamps: true,  parking: true },
+  tertiary:    { lift: 0.12, width: 9,  sidewalk: false, dash: true,  lamps: false, parking: true },
+  residential: { lift: 0.10, width: 7,  sidewalk: false, dash: false, lamps: false, parking: true },
+  service:     { lift: 0.08, width: 5,  sidewalk: false, dash: false, lamps: false, parking: false },
+};
+export const roadClass = (c) => ROAD_CLASS[c] || ROAD_CLASS.residential;
+
+/** Which facade material a building uses, given its kind and district. */
+export function facadeKeyFor(kind, district) {
+  switch (kind) {
+    case 'house': return 'siding';
+    case 'campus': return 'campusStone';
+    case 'hospital': return 'hospital';
+    case 'church': return 'church';
+    case 'civic': return 'civic';
+    case 'industrial': return 'metal';
+    case 'commercial':
+    default:
+      if (district === DISTRICT.DOWNTOWN) return 'brick';
+      if (district === DISTRICT.CAMPUS) return 'campusStone';
+      return district === DISTRICT.STRIP ? 'stripRetail' : 'brick';
+  }
+}
+
+/* ================================================================== *
+ * 8. City
+ * ================================================================== */
+
+export class City {
+  constructor(scene, cityJson, opts = {}) {
+    this.scene = scene;
+    this.json = cityJson || {};
+    this.opts = Object.assign({}, CITY_DEFAULTS, opts);
+    this.quality = this.opts.quality || 'high';
+
+    const bb = this.json.bbox || { minX: -2500, maxX: 2500, minZ: -2500, maxZ: 2500 };
+    this.bounds = { minX: bb.minX, maxX: bb.maxX, minZ: bb.minZ, maxZ: bb.maxZ };
+
+    this.group = new THREE.Group();
+    this.group.name = 'city';
+
+    this.terrain = createTerrainSampler({
+      seed: this.opts.seed,
+      amplitude: this.opts.terrainAmplitude,
+      scale: this.opts.terrainScale,
+    });
+    this.field = new FlattenField(this.terrain, 48);
+
+    this.buildingGrid = new AabbGrid(this.opts.colliderCell);
+    this.roadGrid = new AabbGrid(this.opts.colliderCell);
+    this.buildings = [];
+    this.roads = [];
+    this.waterBodies = [];
+    this.pois = new Map();
+    this.missingPois = [];
+
+    this.textures = {};
+    this.materials = {};
+    this.meshes = [];
+    this.treeChunks = [];
+    this._waterAnim = [];
+    this._coarseRoad = [];
+    this._rng = makeRng(this.opts.seed ^ 0x5f3a);
+
+    // reusable scratch so per-frame queries allocate nothing
+    this._q1 = []; this._q2 = []; this._q3 = [];
+    this._vTmp = new THREE.Vector3();
+    this._mTmp = new THREE.Matrix4();
+    this._qTmp = new THREE.Quaternion();
+    this._sTmp = new THREE.Vector3(1, 1, 1);
+    this._cTmp = new THREE.Color();
+
+    this.built = false;
+    this.stats = { draws: 0, triangles: 0, trees: 0, lamps: 0, cars: 0, buildings: 0 };
+  }
+
+  /* ---------------- public API (see docs/SPEC.md) ---------------- */
+
+  build() {
+    if (this.built) return this;
+    this.textures = makeCityTextures();
+    this._makeMaterials();
+    this._prepareRoads();
+    this._prepareWater();
+    this._prepareBuildings();
+    this._preparePois();
+
+    this._buildTerrain();
+    this._buildRoads();
+    this._buildGreen();
+    this._buildWater();
+    this._buildBuildings();
+    this._buildCampus();
+    this._buildTrees();
+    this._buildLamps();
+    this._buildCars();
+
+    this.scene.add(this.group);
+    this.built = true;
+    return this;
+  }
+
+  getGroundHeight(x, z) {
+    return this.field.height(x, z, this._q1);
+  }
+
+  raycastDown(x, y, z) {
+    let best = this.getGroundHeight(x, z);
+    const hits = this.buildingGrid.queryPoint(x, z, this._q2);
+    for (let i = 0; i < hits.length; i++) {
+      const b = hits[i];
+      if (b.top > y + 0.75) continue;              // roof is above the probe
+      if (b.top <= best) continue;
+      if (x < b.minX || x > b.maxX || z < b.minZ || z > b.maxZ) continue;
+      if (b.poly && !pointInPolygon(x, z, b.poly)) continue;
+      best = b.top;
+    }
+    return best;
+  }
+
+  collideCapsule(pos, radius, height, out) {
+    const r = radius + 0.05;
+    const boxes = this.buildingGrid.query(pos.x - r, pos.z - r, pos.x + r, pos.z + r, this._q3);
+    if (boxes.length === 0) {
+      if (out) { if (out.set) out.set(pos.x, pos.y, pos.z); else { out.x = pos.x; out.y = pos.y; out.z = pos.z; } }
+      return false;
+    }
+    return resolveCapsuleBoxes(pos, radius, height, boxes, out);
+  }
+
+  nearestRoadPoint(x, z) {
+    let best = null, bestD = Infinity;
+    for (const radius of [24, 80, 240, 700]) {
+      const near = this.roadGrid.queryRadius(x, z, radius, this._q2);
+      for (let i = 0; i < near.length; i++) {
+        const s = near[i];
+        const d = (s.x - x) * (s.x - x) + (s.z - z) * (s.z - z);
+        if (d < bestD) { bestD = d; best = s; }
+      }
+      if (best) break;
+    }
+    if (!best) {
+      for (let i = 0; i < this._coarseRoad.length; i++) {
+        const s = this._coarseRoad[i];
+        const d = (s.x - x) * (s.x - x) + (s.z - z) * (s.z - z);
+        if (d < bestD) { bestD = d; best = s; }
+      }
+    }
+    if (!best) return { x, z, roadId: -1 };
+    return { x: best.x, z: best.z, roadId: best.roadId };
+  }
+
+  poi(id) { return this.pois.get(id) || null; }
+
+  /** LOD + water shimmer. Allocation-free. */
+  update(dt, playerPos) {
+    for (let i = 0; i < this._waterAnim.length; i++) {
+      const m = this._waterAnim[i];
+      if (m.map) { m.map.offset.x += dt * 0.0045; m.map.offset.y += dt * 0.0032; }
+      if (m.normalMap) { m.normalMap.offset.x -= dt * 0.0075; m.normalMap.offset.y += dt * 0.0061; }
+    }
+    if (!playerPos || this.treeChunks.length === 0) return;
+    const cull = this.opts.treeCullDistance;
+    const cull2 = cull * cull;
+    for (let i = 0; i < this.treeChunks.length; i++) {
+      const c = this.treeChunks[i];
+      const dx = c.cx - playerPos.x, dz = c.cz - playerPos.z;
+      const visible = dx * dx + dz * dz < cull2;
+      if (c.mesh.visible !== visible) c.mesh.visible = visible;
+    }
+  }
+
+  districtAt(x, z) {
+    const campus = this.pois.get('asumh');
+    if (campus) {
+      const r = (campus.radius || 200) * 1.15;
+      if ((x - campus.x) ** 2 + (z - campus.z) ** 2 < r * r) return DISTRICT.CAMPUS;
+    }
+    if (x * x + z * z < this.opts.downtownRadius ** 2) return DISTRICT.DOWNTOWN;
+    for (let i = 0; i < this._stripRoads.length; i++) {
+      const r = this._stripRoads[i];
+      for (let j = 0; j < r.samples.length; j += 3) {
+        const s = r.samples[j];
+        if ((s.x - x) ** 2 + (s.z - z) ** 2 < 140 * 140) return DISTRICT.STRIP;
+      }
+    }
+    return DISTRICT.RESIDENTIAL;
+  }
+
+  dispose() {
+    this.group.traverse((o) => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
+    });
+    for (const t of Object.values(this.textures)) if (t && t.dispose) t.dispose();
+    if (this.group.parent) this.group.parent.remove(this.group);
+    this.built = false;
+  }
+
+  /* ---------------- materials ---------------- */
+
+  _makeMaterials() {
+    const T = this.textures;
+    const std = (color, map, extra) => new THREE.MeshStandardMaterial(Object.assign({
+      color, map: map || null, roughness: 0.92, metalness: 0.0,
+    }, extra || {}));
+    const offset = { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 };
+
+    this.materials = {
+      terrain: std(0xffffff, T.grass, { vertexColors: true, roughness: 1.0 }),
+      asphalt: std(T.asphalt ? 0xffffff : 0x44464a, T.asphalt, offset),
+      dash: new THREE.MeshBasicMaterial({
+        color: 0xe8d98a, map: T.dash || null, transparent: true, alphaTest: 0.35,
+        depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6,
+      }),
+      concrete: std(T.concrete ? 0xffffff : 0xb0aea7, T.concrete, Object.assign({ side: THREE.DoubleSide }, offset)),
+      lawn: std(T.lawn ? 0xffffff : 0x56763c, T.lawn, offset),
+      water: std(T.water ? 0xffffff : 0x33718c, T.water, {
+        normalMap: T.waterNormal || null, transparent: true, opacity: 0.88,
+        roughness: 0.15, metalness: 0.15, side: THREE.DoubleSide,
+      }),
+      roofShingle: std(T.roof ? 0xffffff : 0x5a4a3e, T.roof),
+      roofFlat: std(T.gravelRoof ? 0xffffff : 0x6f6d66, T.gravelRoof),
+      trim: std(0xf3efe6, null, { vertexColors: true, roughness: 0.8 }),
+      tree: std(0xffffff, null, { vertexColors: true, roughness: 0.95 }),
+      lamp: std(0xffffff, null, { vertexColors: true, roughness: 0.55, metalness: 0.3 }),
+      lampGlass: new THREE.MeshStandardMaterial({ color: 0xffe9b8, emissive: 0xffd88a, emissiveIntensity: 1.1, roughness: 0.3 }),
+      car: std(0xffffff, null, { vertexColors: true, roughness: 0.45, metalness: 0.25 }),
+      sign: std(0xffffff, null, { vertexColors: true, roughness: 0.5, metalness: 0.1, emissive: 0x102040, emissiveIntensity: 0.35 }),
+    };
+    for (const key of Object.keys(FACADE_PAINTERS)) {
+      this.materials[key] = std(this.textures[key] ? 0xffffff : 0xb9b3a6, this.textures[key], { roughness: 0.95 });
+    }
+    if (this.materials.water.normalMap) this.materials.water.normalScale = new THREE.Vector2(0.35, 0.35);
+    this._waterAnim.push(this.materials.water);
+  }
+
+  _addMesh(builder, material, name, renderOrder = 0) {
+    if (!builder || builder.isEmpty) return null;
+    const geom = builder.toGeometry();
+    const mesh = new THREE.Mesh(geom, material);
+    mesh.name = name;
+    mesh.renderOrder = renderOrder;
+    mesh.castShadow = false;
+    mesh.receiveShadow = true;
+    mesh.matrixAutoUpdate = false;
+    mesh.updateMatrix();
+    this.group.add(mesh);
+    this.meshes.push(mesh);
+    this.stats.draws++;
+    this.stats.triangles += builder.triangleCount;
+    return mesh;
+  }
+
+  /* ---------------- preparation passes ---------------- */
+
+  _prepareRoads() {
+    const step = this.opts.roadSampleStep;
+    const roads = Array.isArray(this.json.roads) ? this.json.roads : [];
+    this._stripRoads = [];
+    for (const raw of roads) {
+      const pts0 = (raw.pts || raw.points || []).filter((p) => Array.isArray(p) && p.length >= 2);
+      if (pts0.length < 2) continue;
+      const spec = roadClass(raw.class);
+      const simplified = douglasPeucker(pts0, 1.0);
+      const pts = resamplePolyline(simplified, step);
+      if (pts.length < 2) continue;
+      const base = pts.map((p) => this.terrain(p[0], p[1]));
+      const smooth = smoothSeries(base, this.opts.roadSmoothWindow);
+      const width = raw.width > 0 ? raw.width : spec.width;
+      const y = smooth.map((h) => h + spec.lift);
+      const samples = [];
+      for (let i = 0; i < pts.length; i++) {
+        const s = { x: pts[i][0], z: pts[i][1], y: y[i], roadId: raw.id ?? -1, width, cls: raw.class || 'residential' };
+        samples.push(s);
+        const half = width * 0.5 + 1.5;
+        this.roadGrid.insert(s, s.x - half, s.z - half, s.x + half, s.z + half);
+        if (i % 5 === 0) this._coarseRoad.push(s);
+        this.field.addPad(s.x, s.z, s.y, width * 0.5 + 9);
+      }
+      const road = { id: raw.id ?? -1, name: raw.name || '', cls: raw.class || 'residential', spec, width, pts, y, samples };
+      this.roads.push(road);
+      const nm = (raw.name || '').toLowerCase();
+      if (road.cls === 'primary' || nm.includes('62') || nm.includes('412')) this._stripRoads.push(road);
+    }
+  }
+
+  _prepareWater() {
+    const water = Array.isArray(this.json.water) ? this.json.water : [];
+    for (const w of water) {
+      const poly = (w.poly || []).filter((p) => Array.isArray(p) && p.length >= 2);
+      if (poly.length < 3) continue;
+      let minH = Infinity;
+      for (const p of poly) minH = Math.min(minH, this.terrain(p[0], p[1]));
+      const bed = minH - 2.2;
+      const surface = bed + 1.9;
+      const b = polygonBounds(poly);
+      const stepX = Math.max(30, (b.maxX - b.minX) / 12);
+      const stepZ = Math.max(30, (b.maxZ - b.minZ) / 12);
+      for (let x = b.minX; x <= b.maxX + stepX; x += stepX) {
+        for (let z = b.minZ; z <= b.maxZ + stepZ; z += stepZ) {
+          if (pointInPolygon(x, z, poly)) this.field.addPad(x, z, bed, Math.max(stepX, stepZ) * 0.9);
+        }
+      }
+      this.waterBodies.push({ name: w.name || '', poly, bounds: b, surface, bed });
+    }
+  }
+
+  _prepareBuildings() {
+    const list = Array.isArray(this.json.buildings) ? this.json.buildings : [];
+    for (const raw of list) {
+      let poly = (raw.poly || []).filter((p) => Array.isArray(p) && p.length >= 2).map((p) => [p[0], p[1]]);
+      if (poly.length > 3) {
+        const first = poly[0], last = poly[poly.length - 1];
+        if (Math.abs(first[0] - last[0]) < 1e-6 && Math.abs(first[1] - last[1]) < 1e-6) poly.pop();
+      }
+      if (poly.length < 3) continue;
+      if (Math.abs(polygonArea(poly)) < 6) continue;
+      const bounds = polygonBounds(poly);
+      const centroid = polygonCentroid(poly);
+      const padY = this.field.height(centroid[0], centroid[1], this._q1);
+      const kind = raw.kind || 'house';
+      const h = Math.max(2.6, raw.height || (kind === 'house' ? 5.5 : 8));
+      const rec = {
+        id: raw.id ?? this.buildings.length,
+        name: raw.name || '',
+        kind,
+        poly,
+        bounds,
+        centroid,
+        height: h,
+        base: padY - 0.45,
+        top: padY + h,
+        padY,
+        minX: bounds.minX, maxX: bounds.maxX, minZ: bounds.minZ, maxZ: bounds.maxZ,
+        area: Math.abs(polygonArea(poly)),
+      };
+      rec.district = this.districtAt(centroid[0], centroid[1]);
+      rec.facade = facadeKeyFor(kind, rec.district);
+      this.buildings.push(rec);
+      this.buildingGrid.insert(rec, rec.minX, rec.minZ, rec.maxX, rec.maxZ);
+      let radius = 0;
+      for (const p of poly) radius = Math.max(radius, Math.hypot(p[0] - centroid[0], p[1] - centroid[1]));
+      this.field.addPad(centroid[0], centroid[1], padY, radius + 5);
+    }
+    this.stats.buildings = this.buildings.length;
+  }
+
+  _preparePois() {
+    for (const p of (this.json.pois || [])) {
+      if (!p || !p.id) continue;
+      this.pois.set(p.id, { id: p.id, name: p.name || p.id, x: p.x || 0, z: p.z || 0, radius: p.radius || 60, kind: p.kind || '' });
+    }
+    // never let a missing POI crash a consumer — synthesise a downtown fallback
+    for (const id of REQUIRED_POIS) {
+      if (this.pois.has(id)) continue;
+      this.missingPois.push(id);
+      this.pois.set(id, { id, name: id, x: 0, z: 0, radius: 60, kind: 'fallback', synthetic: true });
+    }
+  }

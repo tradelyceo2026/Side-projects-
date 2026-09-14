@@ -242,6 +242,7 @@ export const SIDE_CHARACTERS = [
         { speaker: 'Coach Renfro', text: "Drones are runnin' pattern drills better than my receivers. Clear the field before practice starts." },
       ],
       objectives: [
+        { type: 'goto', poi: 'high_school', radius: 30, text: 'Head down to the practice field' },
         { type: 'defeat', kind: 'drone', count: 3, text: 'Clear the drones off the practice field' },
       ],
       outro: [

@@ -24,7 +24,7 @@ z = -(lat - lat0) * 110540
 
 ## World bbox (`city.json.bbox`)
 
-- minX=-3130 maxX=4060 minZ=-3840 maxZ=2800 (metres)
+- minX=-3130 maxX=4100 minZ=-3840 maxZ=2810 (metres)
 - Computed by projecting the four corners of the fetch bounding box, not a fixed ±2500
   box — it is asymmetric because the fetch lon/lat box is asymmetric around the origin.
   Roads that OSM returns as complete ways extending beyond this box (a long highway,
