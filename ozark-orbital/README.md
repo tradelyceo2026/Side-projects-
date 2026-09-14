@@ -3,7 +3,8 @@
 A real-physics rocket and orbital-mechanics game that runs in one HTML file.
 Launch a Falcon-class rocket from an Ozark spaceport, reach orbit, and fly to the Moon.
 
-- **Play:** open `dist/ozark-orbital.html` in any browser (double-click it, no server needed).
+- **Play:** open `dist/ozark-orbital.html` in any browser (double-click it, no server needed), or use the hosted copy: https://claude.ai/code/artifact/a24ba8c2-59ba-4846-a9ab-cb3767df9306
+- **Brief:** what it does, the verified flight, and the roadmap: https://claude.ai/code/artifact/530f0999-de40-44e5-b6c1-ba4ff7955e90
 - **Verify:** `npm test` runs 12 tests, including a headless flight that takes the rocket from the pad to lunar orbit.
 - **Zero dependencies.** Plain JavaScript modules, a `<canvas>`, and Node's built-in test runner.
 
