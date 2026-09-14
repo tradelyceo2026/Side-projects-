@@ -22,11 +22,14 @@ z = -(lat - lat0) * 110540
 - This covers a roughly 5-7 km square around downtown, including the ASUMH campus
   (approx lat 36.322, lon -92.391) in the south of the box.
 
-## Data-derived world bbox (`city.json.bbox`)
+## World bbox (`city.json.bbox`)
 
-- minX=-8660 maxX=10750 minZ=-6360 maxZ=12770 (metres)
-- This reflects the actual extent of fetched roads/buildings/water/green, not a fixed
-  ±2500 box — it is asymmetric because the fetch bbox is asymmetric around the origin.
+- minX=-3130 maxX=4060 minZ=-3840 maxZ=2800 (metres)
+- Computed by projecting the four corners of the fetch bounding box, not a fixed ±2500
+  box — it is asymmetric because the fetch lon/lat box is asymmetric around the origin.
+  Roads that OSM returns as complete ways extending beyond this box (a long highway,
+  for instance) are clipped to it before simplification, so every road/building/water/
+  green coordinate in this file lies within (or exactly on) this bbox.
 
 ## Counts
 
@@ -35,7 +38,7 @@ z = -(lat - lat0) * 110540
 - water polygons: 33
 - green polygons: 19
 - POIs: 10
-- final `city.json` size: 614.9 KB (limit 1536 KB)
+- final `city.json` size: 602.6 KB (limit 1536 KB)
 
 ## Size trimming
 

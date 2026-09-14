@@ -410,6 +410,22 @@ async function main() {
   const water = [];
   const green = [];
 
+  // Track the actual extent of everything we keep, so the final bbox can be widened
+  // to fully contain it (a building near a play-area corner can poke a few metres past
+  // the raw corner-projected box; roads are already clipped to PLAY_BOX above).
+  let minX = PLAY_BOX.minX,
+    maxX = PLAY_BOX.maxX,
+    minZ = PLAY_BOX.minZ,
+    maxZ = PLAY_BOX.maxZ;
+  function track(pts) {
+    for (const [x, z] of pts) {
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (z < minZ) minZ = z;
+      if (z > maxZ) maxZ = z;
+    }
+  }
+
   let roadId = 1;
   let buildingId = 1;
 
@@ -436,6 +452,7 @@ async function main() {
       const clipped = clipLineToBox(rawPts, PLAY_BOX);
       if (clipped && clipped.length >= 2) {
         const pts = simplifyLine(clipped, 1.0);
+        track(pts);
         roads.push({
           id: roadId++,
           name: tags.name || tags.ref || '',
@@ -455,6 +472,7 @@ async function main() {
         const area = polygonArea(poly);
         if (area >= 15) {
           const kind = buildingKind(tags);
+          track(poly);
           buildings.push({
             id: buildingId++,
             name: tags.name || '',
@@ -468,10 +486,13 @@ async function main() {
 
     // Water
     if (closed && (tags.natural === 'water' || tags.waterway === 'riverbank' || tags.landuse === 'reservoir')) {
-      const poly = simplifyPolygon(rawPts, 1.0);
-      if (polygonArea(poly) >= 15) {
-        track(poly);
-        water.push({ name: tags.name || '', poly });
+      const [wcx, wcz] = centroid(rawPts);
+      if (isInsideBox([wcx, wcz], PADDED_BOX)) {
+        const poly = simplifyPolygon(rawPts, 1.0);
+        if (polygonArea(poly) >= 15) {
+          track(poly);
+          water.push({ name: tags.name || '', poly });
+        }
       }
     }
 
@@ -484,10 +505,13 @@ async function main() {
         tags.landuse === 'cemetery' ||
         tags.natural === 'wood')
     ) {
-      const poly = simplifyPolygon(rawPts, 1.0);
-      if (polygonArea(poly) >= 15) {
-        track(poly);
-        green.push({ name: tags.name || '', kind: greenKind(tags), poly });
+      const [gcx, gcz] = centroid(rawPts);
+      if (isInsideBox([gcx, gcz], PADDED_BOX)) {
+        const poly = simplifyPolygon(rawPts, 1.0);
+        if (polygonArea(poly) >= 15) {
+          track(poly);
+          green.push({ name: tags.name || '', kind: greenKind(tags), poly });
+        }
       }
     }
 
@@ -750,6 +774,19 @@ async function main() {
     addPoi('landing_zone', 'Courthouse Square', 'civic', 0, 30, 50, 'no nearby parking lot found in fetched OSM data; placed at the courthouse square itself (just north of the origin), per spec fallback.');
   }
 
+  // Clamp every POI into the final world bbox: some real-world features (e.g. the
+  // airport, near the southern fetch edge) sit just outside it, and the fully
+  // out-of-range fallbacks (e.g. Norfork Lake) were only roughly clamped above.
+  for (const p of pois) {
+    const cx = Math.max(minX, Math.min(maxX, p.x));
+    const cz = Math.max(minZ, Math.min(maxZ, p.z));
+    if (cx !== p.x || cz !== p.z) {
+      notes.push(`- **${p.id}**: clamped from real-world position (${p.x}, ${p.z}) to (${round1(cx)}, ${round1(cz)}) to stay within the world bbox.`);
+      p.x = round1(cx);
+      p.z = round1(cz);
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Size guard: if too big, progressively trim per spec instructions.
   // -------------------------------------------------------------------------
@@ -762,10 +799,10 @@ async function main() {
     return {
       origin: { lat: LAT0, lon: LON0 },
       bbox: {
-        minX: Math.floor(minX / 10) * 10,
-        maxX: Math.ceil(maxX / 10) * 10,
-        minZ: Math.floor(minZ / 10) * 10,
-        maxZ: Math.ceil(maxZ / 10) * 10,
+        minX: Math.floor(PLAY_BOX.minX / 10) * 10,
+        maxX: Math.ceil(PLAY_BOX.maxX / 10) * 10,
+        minZ: Math.floor(PLAY_BOX.minZ / 10) * 10,
+        maxZ: Math.ceil(PLAY_BOX.maxZ / 10) * 10,
       },
       roads: roadsIn,
       buildings: buildingsIn,
@@ -853,11 +890,14 @@ z = -(lat - lat0) * 110540
 - This covers a roughly 5-7 km square around downtown, including the ASUMH campus
   (approx lat 36.322, lon -92.391) in the south of the box.
 
-## Data-derived world bbox (\`city.json.bbox\`)
+## World bbox (\`city.json.bbox\`)
 
 - minX=${cityJson.bbox.minX} maxX=${cityJson.bbox.maxX} minZ=${cityJson.bbox.minZ} maxZ=${cityJson.bbox.maxZ} (metres)
-- This reflects the actual extent of fetched roads/buildings/water/green, not a fixed
-  ±2500 box — it is asymmetric because the fetch bbox is asymmetric around the origin.
+- Computed by projecting the four corners of the fetch bounding box, not a fixed ±2500
+  box — it is asymmetric because the fetch lon/lat box is asymmetric around the origin.
+  Roads that OSM returns as complete ways extending beyond this box (a long highway,
+  for instance) are clipped to it before simplification, so every road/building/water/
+  green coordinate in this file lies within (or exactly on) this bbox.
 
 ## Counts
 
