@@ -1,0 +1,12 @@
+{
+  "name": "xmen-mountain-home",
+  "version": "0.1.0",
+  "description": "An open-world X-Men action game set in Mountain Home, Arkansas, built from real OpenStreetMap data. Browser, Three.js, no install.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "build": "node scripts/build.mjs",
+    "serve": "python3 -m http.server 8082"
+  }
+}
