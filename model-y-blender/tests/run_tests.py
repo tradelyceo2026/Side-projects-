@@ -119,6 +119,14 @@ def _screen_geometry():
     uvs = [uv for uv in screen.face_uvs if uv]
     if not uvs:
         raise AssertionError("screen quad has no UVs")
+    # the driver has to be able to see it: nothing in the assembly may sit in
+    # front of the display face (the bezel used to, and hid it completely)
+    display = [screen.verts[i][0] for f, m in zip(screen.faces, screen.face_materials)
+               if screen.materials[m] == "Screen" for i in f]
+    others = [screen.verts[i][0] for f, m in zip(screen.faces, screen.face_materials)
+              if screen.materials[m] != "Screen" for i in f]
+    if min(others) < min(display) - 1e-6:
+        raise AssertionError("something is mounted in front of the touchscreen")
 
 
 @check("openable panels are separate and share the shell's shut lines")

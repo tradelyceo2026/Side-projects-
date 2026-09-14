@@ -7,7 +7,10 @@ inside Blender, and Grok is wired to the car's controls through xAI function
 calling — with a local intent engine that does the same job when there is no
 API key.
 
-![The car in Blender](docs/hero.png)
+![The car rendered in Blender](docs/blender-hero.png)
+
+*Built and rendered in Blender 5.2 — 36 objects, 9,374 polygons, body measured
+in-scene at 4749.8 × 1920.1 mm on a 2890.5 mm wheelbase.*
 
 Nothing here is scraped from Tesla's CAD or from any commercial model. Every
 number is sourced in [`model_y/specs.py`](model_y/specs.py), and anything Tesla
@@ -47,6 +50,10 @@ about 110 ms, so it updates live while the car drives in the viewport, and it
 can be baked per-frame so a rendered animation shows the screen changing.
 
 ![The touchscreen](docs/screen.png)
+
+And the same UI, lit inside the car:
+
+![The screen in the cabin](docs/blender-cabin.png)
 
 **Grok is real.** With `XAI_API_KEY` set (or a key in the add-on preferences),
 the assistant talks to the xAI chat-completions API with the car's controls
@@ -104,8 +111,14 @@ python3 tools/preview.py        # orthographic PNG previews without Blender
 ```
 
 The add-on group runs the entire Blender layer against `tests/fake_bpy.py`, a
-stand-in for `bpy` — which is how the parent-inverse bug that offset every wheel
-got caught.
+stand-in for `bpy`.
+
+Building it in a real Blender caught three things a fake cannot: children were
+double-offset because `matrix_world` is not evaluated for objects created in the
+same run (every wheel sat outside its arch); the generated screen image was lost
+on save because a generated buffer is not written to the .blend unless it is
+packed; and the screen's own bezel was mounted 4 mm in *front* of the display,
+hiding it completely. All three are fixed, and the last one now has a test.
 
 ---
 

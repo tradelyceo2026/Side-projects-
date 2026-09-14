@@ -632,9 +632,11 @@ def build_screen_quad():
         return (SCREEN_X - v * st - out * ct, u, SCREEN_Z + v * ct - out * st)
 
     quad = [pt(-hw, -hh), pt(hw, -hh), pt(hw, hh), pt(-hw, hh)]
-    p.face(p.ring(quad), "Screen", [(0, 0), (1, 0), (1, 1), (0, 1)])
-    bez = [pt(-hw - 0.012, -hh - 0.012, 0.004), pt(hw + 0.012, -hh - 0.012, 0.004),
-           pt(hw + 0.012, hh + 0.012, 0.004), pt(-hw - 0.012, hh + 0.012, 0.004)]
+    # the driver sees the -X face, so U runs right-to-left or the UI mirrors
+    p.face(p.ring(quad), "Screen", [(1, 0), (0, 0), (0, 1), (1, 1)])
+    # the surround sits behind the glass; in front it would hide the display
+    bez = [pt(-hw - 0.012, -hh - 0.012, -0.006), pt(hw + 0.012, -hh - 0.012, -0.006),
+           pt(hw + 0.012, hh + 0.012, -0.006), pt(-hw - 0.012, hh + 0.012, -0.006)]
     bi = p.ring(bez)
     loft(p, [bez, quad], "Trim_Gloss", True)
     p.face(list(reversed(bi)), "Trim_Gloss")

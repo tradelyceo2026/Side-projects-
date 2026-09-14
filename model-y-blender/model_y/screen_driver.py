@@ -58,8 +58,12 @@ def refresh_screen(page: str = "auto", force: bool = False) -> bool:
     except AttributeError:                    # very old builds
         image.pixels[:] = pixels
     image.update()
-    if image.preview is not None:
-        image.preview.reload() if hasattr(image.preview, "reload") else None
+    # A generated image's buffer is not written into the .blend unless it is
+    # packed, so a saved file would reopen with a blank screen.
+    try:
+        image.pack()
+    except (RuntimeError, AttributeError):
+        pass
     return True
 
 

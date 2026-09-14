@@ -46,9 +46,13 @@ def build_screen() -> Mesh:
     bez = 0.012
     quad = [p(-hw, -hh), p(hw, -hh), p(hw, hh), p(-hw, hh)]
     idx = m.add_verts(quad)
-    m.add_face(idx, "Screen", uvs=[(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)])
-    bezel = [p(-hw - bez, -hh - bez, 0.004), p(hw + bez, -hh - bez, 0.004),
-             p(hw + bez, hh + bez, 0.004), p(-hw - bez, hh + bez, 0.004)]
+    # U runs right-to-left across the panel: the face the driver sees is the
+    # -X side, so mapping U along +Y directly would mirror the whole UI
+    m.add_face(idx, "Screen", uvs=[(1.0, 0.0), (0.0, 0.0), (0.0, 1.0), (1.0, 1.0)])
+    # the surround sits *behind* the glass (negative offset is away from the
+    # driver); in front of it, it would hide the display completely
+    bezel = [p(-hw - bez, -hh - bez, -0.006), p(hw + bez, -hh - bez, -0.006),
+             p(hw + bez, hh + bez, -0.006), p(-hw - bez, hh + bez, -0.006)]
     bi = m.add_verts(bezel)
     loft(m, [bezel, quad], "Trim_Gloss", closed_sections=True)
     m.add_face(list(reversed(bi)), "Trim_Gloss")
