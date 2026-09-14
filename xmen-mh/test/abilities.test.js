@@ -9,6 +9,7 @@ import {
 } from '../src/abilities.js';
 import {
   meleeAttack, damageEntity, applyRegen, PhysicsProp, MELEE, PROP_KINDS,
+  spawnProps, clearProps,
 } from '../src/combat.js';
 
 /* ------------------------------------------------------------------ fakes */
@@ -475,6 +476,63 @@ test('held props are suspended and buildings stop a thrown prop', () => {
   prop.throwWith(new THREE.Vector3(0, 0, -25));
   for (let i = 0; i < 60; i++) prop.update(1 / 60, wall, s);
   assert.ok(prop.pos.z >= -3.001, `stopped by the wall at ${prop.pos.z}`);
+});
+
+test('updateAbilities steps props when nothing else does, and never double-steps them', () => {
+  // nobody else drives the props: updateAbilities takes over
+  const s = fakeState();
+  const mesh = new THREE.Object3D();
+  mesh.position.set(0, 0.45, 0);
+  const prop = new PhysicsProp(mesh, 35, { kind: 'crate', size: PROP_KINDS.crate.size });
+  s.props.push(prop);
+  prop.throwWith(new THREE.Vector3(0, 0, -10));
+  step(s, 1 / 60, 12);
+  assert.ok(prop.pos.z < -0.9, `abilities should drive idle props, z=${prop.pos.z}`);
+
+  // the main loop drives them: the same frame budget must not be integrated twice
+  const a = fakeState();
+  const ma = new THREE.Object3D(); ma.position.set(0, 20.45, 0);
+  const pa = new PhysicsProp(ma, 35, { kind: 'crate', size: PROP_KINDS.crate.size });
+  a.props.push(pa); pa.throwWith(new THREE.Vector3(0, 0, 0));
+  for (let i = 0; i < 30; i++) {
+    a.time += 1 / 60; updateAbilities(a, 1 / 60);
+    for (const p of a.props) p.update((1 / 60) * a.timeScale, a.city, a);   // main.js does this
+  }
+  const mb = new THREE.Object3D(); mb.position.set(0, 20.45, 0);
+  const pb = new PhysicsProp(mb, 35, { kind: 'crate', size: PROP_KINDS.crate.size });
+  pb.throwWith(new THREE.Vector3(0, 0, 0));
+  for (let i = 0; i < 30; i++) pb.update(1 / 60, a.city, null);
+  assert.ok(Math.abs(pa.pos.y - pb.pos.y) < 1e-9, `single integration expected: ${pa.pos.y} vs ${pb.pos.y}`);
+});
+
+test('spawnProps scatters crates, benches, mailboxes and cars on the ground near roads', () => {
+  const scene = new THREE.Object3D();
+  const city = Object.assign(fakeCity(0), {
+    getGroundHeight: (x) => Math.sin(x * 0.01) * 2,
+    nearestRoadPoint: (x, z) => ({ x: Math.round(x / 40) * 40, z, roadId: 1 }),
+    poi: (id) => (id === 'downtown' ? { id, x: 0, z: 0, radius: 150 } : null),
+  });
+  const s = fakeState();
+  s.scene = scene;
+  const made = spawnProps(s, city, 40, { seed: 7 });
+  assert.equal(made.length, 40);
+  assert.equal(s.props.length, 40);
+  assert.equal(scene.children.length, 40);
+  const kinds = new Set(made.map((p) => p.kind));
+  for (const k of ['crate', 'bench', 'mailbox', 'car']) assert.ok(kinds.has(k), `missing ${k}`);
+  for (const p of made) {
+    assert.ok(Math.abs(p.pos.y - (city.getGroundHeight(p.pos.x) + p.halfH)) < 1e-9, 'sits on the ground');
+    assert.equal(p.held, false);
+    assert.equal(p.asleep, true);
+  }
+  // deterministic for a given seed, and shares cached geometry/material per kind
+  const s2 = fakeState();
+  const again = spawnProps(s2, city, 40, { seed: 7 });
+  assert.equal(again[5].pos.distanceTo(made[5].pos), 0);
+  assert.equal(new Set(made.map((p) => p.mesh.geometry)).size, 4);
+  clearProps(s);
+  assert.equal(s.props.length, 0);
+  assert.equal(scene.children.length, 0);
 });
 
 test('damageEntity kills the player and flips the phase', () => {

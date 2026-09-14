@@ -259,7 +259,10 @@ export function polylineLength(pts) {
   return L;
 }
 
-/** Resample a polyline at (roughly) fixed spacing; always keeps both endpoints. */
+/**
+ * Resample a polyline at (roughly) fixed spacing. Every original vertex is kept, so
+ * corners are never cut and the total length is preserved exactly.
+ */
 export function resamplePolyline(pts, step = 12) {
   const clean = [];
   for (const p of pts) {
@@ -268,23 +271,15 @@ export function resamplePolyline(pts, step = 12) {
   }
   if (clean.length < 2) return clean;
   const out = [[clean[0][0], clean[0][1]]];
-  let carry = 0;
   for (let i = 1; i < clean.length; i++) {
-    const ax = clean[i - 1][0], az = clean[i - 1][1];
-    const bx = clean[i][0], bz = clean[i][1];
-    const segLen = Math.hypot(bx - ax, bz - az);
-    let t = step - carry;
-    while (t <= segLen) {
-      const u = t / segLen;
-      out.push([ax + (bx - ax) * u, az + (bz - az) * u]);
-      t += step;
+    const a = clean[i - 1], b = clean[i];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const n = Math.max(1, Math.round(len / step));
+    for (let k = 1; k <= n; k++) {
+      const u = k / n;
+      out.push([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]);
     }
-    carry = (carry + segLen) % step;
   }
-  const last = clean[clean.length - 1];
-  const tail = out[out.length - 1];
-  if (Math.hypot(last[0] - tail[0], last[1] - tail[1]) > step * 0.25) out.push([last[0], last[1]]);
-  else { out[out.length - 1] = [last[0], last[1]]; }
   return out;
 }
 
@@ -1048,6 +1043,7 @@ export class City {
     this._sTmp = new THREE.Vector3(1, 1, 1);
     this._cTmp = new THREE.Color();
 
+    this._stripRoads = [];
     this.built = false;
     this.stats = { draws: 0, triangles: 0, trees: 0, lamps: 0, cars: 0, buildings: 0 };
   }

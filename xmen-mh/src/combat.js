@@ -25,6 +25,20 @@ export const PROP_KINDS = {
   car:     { size: [4.4, 1.5, 1.9], mass: 900, color: 0xb8352f, tint: '#b8352f' },
 };
 
+// The live game state, so a prop updated as `prop.update(dt, city)` (no state argument,
+// which is how src/main.js drives them) can still find the enemies it slams into.
+let _world = null;
+/** Lets abilities.js/main.js tell the prop system which state object is live. */
+export function setWorld(state) {
+  if (!state) return;
+  _world = state;
+  // time running backwards means a new game (or a new test state): forget who drove props
+  if (state.time !== undefined && state.time < _lastPropTick) _lastPropTick = -Infinity;
+}
+/** Game time at which any prop was last integrated — used to avoid double-stepping props. */
+let _lastPropTick = -Infinity;
+export function propsLastSteppedAt() { return _lastPropTick; }
+
 const GRAVITY = -19.6;          // a touch heavier than real g; reads better for thrown junk
 const PROP_DAMAGE_SPEED = 8;    // m/s above which a moving prop hurts
 const PROP_DAMAGE_RADIUS = 1.5;
@@ -316,6 +330,8 @@ export class PhysicsProp {
 
   update(dt, city, state) {
     if (!this.alive || !(dt > 0)) return;
+    const st = state || _world;
+    if (st && st.time !== undefined) _lastPropTick = st.time;
     if (this.held) { this.asleep = false; if (this.mesh) this.mesh.position.copy(this.pos); return; }
     if (this.asleep) return;
 
@@ -348,8 +364,9 @@ export class PhysicsProp {
         bus.emit('sfx', { name: 'prop_land', pos: this.pos, gain: 0.5 });
       } else {
         this.vel.y = 0;
-        this.vel.x *= 0.7;
-        this.vel.z *= 0.7;
+        const damp = Math.exp(-5 * dt);   // frame-rate independent ground friction
+        this.vel.x *= damp;
+        this.vel.z *= damp;
         this.grounded = true;
         this.spin.set(0, 0, 0);
         if (this.vel.lengthSq() < 0.04) { this.vel.set(0, 0, 0); this.asleep = true; }
@@ -360,7 +377,7 @@ export class PhysicsProp {
 
     // damage things it slams into while it is really moving
     const speed2 = this.vel.lengthSq();
-    if (speed2 > PROP_DAMAGE_SPEED * PROP_DAMAGE_SPEED) this._smash(state, Math.sqrt(speed2));
+    if (speed2 > PROP_DAMAGE_SPEED * PROP_DAMAGE_SPEED) this._smash(st, Math.sqrt(speed2));
 
     if (this.mesh) {
       this.mesh.position.copy(this.pos);
@@ -417,6 +434,7 @@ export class PhysicsProp {
  */
 export function updateProps(state, dt, city) {
   if (!state || !Array.isArray(state.props) || !(dt > 0)) return;
+  _world = state;
   const stamp = state.time === undefined ? null : state.time;
   if (stamp !== null && state.__propsStamp === stamp) return;
   state.__propsStamp = stamp;
@@ -516,6 +534,7 @@ const SPAWN_MIX = ['crate', 'crate', 'crate', 'crate', 'bench', 'bench', 'mailbo
  * POIs, adds them to `state.props` and to the scene. Returns the props created.
  */
 export function spawnProps(state, city, count = 120, opts = {}) {
+  _world = state;
   const rand = mulberry32(opts.seed === undefined ? 0x5eed1e : opts.seed);
   const pois = gatherPois(city);
   const scene = opts.scene || (state && state.scene);

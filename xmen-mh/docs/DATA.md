@@ -20,7 +20,8 @@ z = -(lat - lat0) * 110540
 - lon: [-92.42, -92.34]
 - lat: [36.31, 36.37]
 - This covers a roughly 5-7 km square around downtown, including the ASUMH campus
-  (approx lat 36.322, lon -92.391) in the south of the box.
+  (verified via Nominatim address geocoding at lat 36.3196, lon -92.3829) in the south
+  of the box.
 
 ## World bbox (`city.json.bbox`)
 
@@ -51,28 +52,28 @@ Not needed — file came in under the 1.5 MB target without trimming.
 | --- | --- | ---: | ---: | ---: |
 | `courthouse` | Baxter County Courthouse | 0.0 | 0.0 | 60 |
 | `downtown` | Downtown Mountain Home | 0.0 | 0.0 | 150 |
-| `asumh` | ASUMH Campus | -520.1 | 1470.2 | 250 |
+| `asumh` | ASUMH Campus | 206.3 | 1735.5 | 250 |
 | `hospital` | Baxter Regional Medical Center | -1056.0 | -888.9 | 150 |
 | `walmart` | Walmart Supercenter | 3979.0 | -2194.1 | 120 |
 | `high_school` | Mountain Home High School | -1072.9 | 329.0 | 150 |
 | `park` | Cooper Park | 1650.4 | -1008.6 | 100 |
-| `airport` | Baxter County Airport | -1452.7 | 2801.1 | 300 |
-| `lake` | Pond | 916.2 | -455.4 | 150 |
+| `airport` | Baxter County Airport | -3120.7 | -3741.1 | 300 |
+| `lake` | Pond | 1303.0 | 106.1 | 150 |
 | `landing_zone` | Courthouse Square Parking | 29.9 | -0.8 | 50 |
 
 ### Notes on POI sourcing
 
 - **courthouse** (Baxter County Courthouse): matched OSM feature "Baxter County Courthouse" near (27.2, 24.3); pinned to origin (0,0) per spec (courthouse square defines the origin).
 - **downtown** (Downtown Mountain Home): courthouse square, same as `courthouse`, per spec.
-- **asumh** (ASUMH Campus): not found by name in fetched OSM data; placed at the documented campus coordinate (lat 36.322, lon -92.391, 1600 S College St).
+- **asumh** (ASUMH Campus): not found by name/amenity in fetched OSM data (campus buildings are tagged only building=yes, no university/college amenity or name); placed via Nominatim address geocoding of "1600 South College Street, Mountain Home, AR" (lat 36.3196, lon -92.3829).
 - **hospital** (Baxter Regional Medical Center): matched OSM feature "Baxter Regional Medical Center" at (-1056, -888.9).
 - **walmart** (Walmart Supercenter): matched OSM feature "Walmart Supercenter" at (3979, -2194.1).
 - **high_school** (Mountain Home High School): matched OSM feature "Mountain Home High School" at (-1072.9, 329).
 - **park** (Cooper Park): matched OSM feature "Cooper Park" at (1650.4, -1008.6).
-- **airport** (Baxter County Airport): not found in fetched OSM data (it lies just south of our bbox); placed at the documented approximate coordinate (lat 36.3086, lon -92.4014, M17).
-- **lake** (Pond): Norfork Lake is outside the fetched bbox; used nearest fetched water feature "(unnamed)" at (916.2, -455.4) instead.
+- **airport** (Baxter County Airport): not found in fetched OSM data (it lies several km NW of our bbox); placed via Nominatim geocoding (lat 36.3691443, lon -92.469381, M17) and clamped to the map edge in that direction.
+- **lake** (Pond): Norfork Lake itself is not in the fetched OSM data (its nearest shoreline near Mountain Home is ~10+ km away, near Gamaliel, AR); used the nearest sizeable fetched water feature "(unnamed)" (~3852 m²) instead.
 - **landing_zone** (Courthouse Square Parking): matched a real parking lot near downtown at (29.9, -0.8).
-- **airport**: clamped from real-world position (-1452.7, 2951.4) to (-1452.7, 2801.1) to stay within the world bbox.
+- **airport**: clamped from real-world position (-7549, -3741.1) to (-3120.7, -3741.1) to stay within the world bbox.
 
 ## Roads required by spec
 

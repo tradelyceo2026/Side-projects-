@@ -26,7 +26,7 @@ const LAT0 = 36.3353;
 const LON0 = -92.3852;
 
 // Overall coverage area (~5km x ~6.6km around downtown), extended south to cover the
-// ASUMH campus at approx 36.322, -92.391 (already inside this range).
+// ASUMH campus at approx 36.3196, -92.3829 (already inside this range).
 const AREA = { minLon: -92.42, maxLon: -92.34, minLat: 36.31, maxLat: 36.37 };
 const TILE = 0.012; // degrees per tile edge, keeps each request tiny (well under API limits)
 
@@ -735,30 +735,35 @@ async function main() {
     );
   }
 
-  // lake (Norfork Lake) — real lake is well outside our ~5km bbox around downtown.
+  // lake (Norfork Lake) — verified via Nominatim (relation 8452802): the lake's bounding
+  // box is huge, but its shoreline near Mountain Home is roughly 10+ km away (nearest
+  // lakeside community is Gamaliel, AR, lat 36.4567317, lon -92.2332128, well NE of
+  // downtown); nothing in our fetch bbox is tagged as part of it, confirmed below.
   const lakeMatch = findByName(/norfork lake|lake norfork/i) || water.find((w) => /norfork/i.test(w.name || ''));
+  const bigWaterInBox = water
+    .map((w) => ({ w, area: polygonArea(w.poly), c: centroid(w.poly) }))
+    .filter((e) => e.area > 3000) // a real pond/reservoir, not a stray sliver
+    .sort((a, b) => dist(a.c[0], a.c[1], 0, 0) - dist(b.c[0], b.c[1], 0, 0))[0];
   if (lakeMatch && lakeMatch.x !== undefined) {
     addPoi('lake', 'Norfork Lake', 'water', lakeMatch.x, lakeMatch.z, 200, `matched OSM feature "${lakeMatch.tags.name}".`);
-  } else if (water.length > 0) {
-    // fall back to nearest fetched water polygon of any kind
-    let best = null;
-    let bestD = Infinity;
-    for (const w of water) {
-      const [cx, cz] = centroid(w.poly);
-      const d = dist(cx, cz, 0, 0);
-      if (d < bestD) {
-        bestD = d;
-        best = { cx, cz, name: w.name };
-      }
-    }
-    addPoi('lake', best.name || 'Pond', 'water', best.cx, best.cz, 150, `Norfork Lake is outside the fetched bbox; used nearest fetched water feature "${best.name || '(unnamed)'}" at (${round1(best.cx)}, ${round1(best.cz)}) instead.`);
+  } else if (bigWaterInBox) {
+    const [cx, cz] = bigWaterInBox.c;
+    addPoi(
+      'lake',
+      bigWaterInBox.w.name || 'Pond',
+      'water',
+      cx,
+      cz,
+      150,
+      `Norfork Lake itself is not in the fetched OSM data (its nearest shoreline near Mountain Home is ~10+ km away, near Gamaliel, AR); used the nearest sizeable fetched water feature "${bigWaterInBox.w.name || '(unnamed)'}" (~${Math.round(bigWaterInBox.area)} m²) instead.`
+    );
   } else {
-    // Norfork Lake's nearest arm (Bidwell/Panther Bay area) is roughly 8 km NE of downtown,
-    // well outside the game map. Document the real-world coordinate anyway per spec fallback
-    // ("Dam/Norfork if the lake is out of range"), but clamp its in-game marker near the map edge
-    // in the correct compass direction so the minimap arrow/marker still points the right way.
-    const realLat = 36.365,
-      realLon = -92.245; // approx nearest Norfork Lake shoreline (Panther Bay area)
+    // Per spec fallback ("Dam/Norfork if the lake is out of range"): document the real
+    // nearest-lake coordinate (Gamaliel, a Norfork Lake community) and clamp its in-game
+    // marker to the map edge in the correct compass direction (NE) so the minimap arrow
+    // still points the right way.
+    const realLat = 36.4567317,
+      realLon = -92.2332128; // Gamaliel, AR — a Norfork Lake shoreline community NE of Mountain Home
     const [rx, rz] = project(realLat, realLon);
     const edgeX = Math.max(-2400, Math.min(2400, rx));
     const edgeZ = Math.max(-2400, Math.min(2400, rz));
@@ -905,7 +910,8 @@ z = -(lat - lat0) * 110540
 - lon: [${AREA.minLon}, ${AREA.maxLon}]
 - lat: [${AREA.minLat}, ${AREA.maxLat}]
 - This covers a roughly 5-7 km square around downtown, including the ASUMH campus
-  (approx lat 36.322, lon -92.391) in the south of the box.
+  (verified via Nominatim address geocoding at lat 36.3196, lon -92.3829) in the south
+  of the box.
 
 ## World bbox (\`city.json.bbox\`)
 

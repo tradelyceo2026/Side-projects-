@@ -137,7 +137,7 @@ export class VFX {
     this._tmpQ = new THREE.Quaternion();
 
     // --- claw slashes / sweeps: partial rings, additive white ---
-    const arcGeo = new THREE.RingGeometry(0.55, 1, 5, 1, -0.9, 1.8);
+    const arcGeo = new THREE.RingGeometry(0.55, 1, 10, 1, -0.9, 1.8);
     const arcMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
     this.arcs = new InstancedFX(arcGeo, arcMat, 18, 'shrink');
     scene.add(this.arcs.mesh);
@@ -285,9 +285,9 @@ export class VFX {
   // -------------------------------------------------------------- effects
   clawSlash(pos, dir = { x: 0, y: 0, z: -1 }, scale = 1) {
     this._tmpV.set(dir.x || 0, dir.y || 0, dir.z || -1).normalize();
-    this._tmpQ.setFromUnitVectors(this._up, this._tmpV.lengthSq() > 0 ? this._tmpV : this._up);
+    const axis = this._tmpV.lengthSq() > 0.001 ? this._tmpV.clone() : this._up.clone();
     for (let i = 0; i < 3; i++) {
-      const q = new THREE.Quaternion().setFromAxisAngle(this._tmpV.lengthSq() > 0.001 ? this._tmpV : this._up, i * 0.5 - 0.5);
+      const q = new THREE.Quaternion().setFromAxisAngle(axis, i * 0.5 - 0.5);
       q.multiply(this._faceDirQuat(dir));
       this.arcs.spawn({
         position: new THREE.Vector3(pos.x, pos.y + 1 + i * 0.15, pos.z),
@@ -330,9 +330,8 @@ export class VFX {
     this._tmpV.set(to.x - from.x, to.y - from.y, to.z - from.z);
     const len = Math.max(0.001, this._tmpV.length());
     this.beam.scale.set(1, 1, len);
-    this._tmpQ.setFromUnitVectors(this._up, this._tmpV.normalize());
     // beam geometry's long axis is local Z after construction; align +Z with dir.
-    const dir = this._tmpV;
+    const dir = this._tmpV.normalize();
     this.beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
     this.beamGlow.position.set(to.x, to.y, to.z);
   }

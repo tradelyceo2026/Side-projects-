@@ -12,7 +12,14 @@ import * as THREE from '../vendor/three.module.js';
 import { bus } from './core/bus.js';
 import {
   damageEntity, applyRegen, tickBleeds, updateProps, applyKnockback,
-  isAlive, enemyList, aimDirection, centerY,
+  isAlive, enemyList, aimDirection, centerY, setWorld, propsLastSteppedAt,
+} from './combat.js';
+
+// Convenience re-exports so a caller can pull the whole combat surface off this module
+// (src/main.js imports `spawnProps` from here).
+export {
+  meleeAttack, damageEntity, applyRegen, applyBleed, applyKnockback,
+  PhysicsProp, spawnProps, clearProps, updateProps, MELEE, PROP_KINDS,
 } from './combat.js';
 
 /* ------------------------------------------------------------------ the table */
@@ -90,6 +97,7 @@ export function getHeld() { return rt.tk ? rt.tk.target : null; }
 
 /** Clears every cooldown/effect — new game, respawn, or tests. */
 export function resetAbilities(state) {
+  setWorld(state);
   for (const k in cool) delete cool[k];
   for (const k in act) delete act[k];
   for (const k in ctxOf) delete ctxOf[k];
@@ -252,7 +260,12 @@ export function updateAbilities(state, dt) {
 
   applyRegen(state, dt);
   tickBleeds(state, dt);
-  updateProps(state, dt, state.city);
+
+  // Props: the main loop usually steps them itself (with the slow-mo scaled dt). Only take
+  // over when nobody has stepped them for a frame, so they are never integrated twice.
+  setWorld(state);
+  const t = state.time === undefined ? 0 : state.time;
+  if (!(t - propsLastSteppedAt() <= dt * 2.5)) updateProps(state, dt * (state.timeScale || 1), state.city);
 }
 
 /* ------------------------------------------------------------------ fire handlers */
