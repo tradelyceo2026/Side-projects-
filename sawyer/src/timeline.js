@@ -1,5 +1,5 @@
 // Sawyer — DOM timeline: tracks, clips, trimming, moving, razor, ruler, snapping, drag-drop from the bin.
-import { track, findClip, clipEnd, allClips, sequenceDuration, moveClip, trimStart, trimEnd, splitClip, snapPoints, snap, placeClip } from './model.js';
+import { track, findClip, clipEnd, allClips, sequenceDuration, moveClip, trimStart, trimEnd, splitLinked, snapPoints, snap } from './model.js';
 import { runtime } from './media.js';
 
 export function fmtTC(t, fps = 30) {
@@ -177,8 +177,7 @@ export function createTimeline(app) {
     if (app.tool === 'razor') {
       const time = pointerTime(e);
       app.commit('razor');
-      const r = splitClip(app.project, c.id, snapTime(time, [c.id]));
-      if (r && c.linkId) for (const o of allClips(app.project)) if (o.linkId === c.linkId && o.id !== c.id && o.id !== r.right.id) splitClip(app.project, o.id, r.right.start);
+      splitLinked(app.project, c.id, snapTime(time, [c.id]));
       app.refresh(); return;
     }
     if (e.shiftKey || e.ctrlKey || e.metaKey) app.select([c.id], true);

@@ -1,7 +1,7 @@
 // Sawyer — AI assistant: tool definitions shared by two backends
 //  (1) claude.use('sample') inside a claude.ai artifact (no key needed, viewer's account)
 //  (2) the Anthropic Messages API with the user's own key (raw HTTP; this page has no build step or SDK)
-import { summarize, findClip, splitClip, removeClip, rippleDelete, moveClip, trimStart, trimEnd, setTransition, setKeyframe, cutRangesFromClip, detectSilence, closeGaps, allClips, sequenceDuration, clipEnd } from './model.js';
+import { summarize, findClip, splitLinked, removeClip, rippleDelete, moveClip, trimStart, trimEnd, setTransition, setKeyframe, cutRangesFromClip, detectSilence, closeGaps, allClips, sequenceDuration, clipEnd } from './model.js';
 import { runtime } from './media.js';
 
 export const SYSTEM_PROMPT = `You are the editing assistant inside Sawyer, an open-source non-linear video editor.
@@ -30,12 +30,11 @@ export function buildTools(editor) {
       execute: ({ clip_id, time }) => {
         const f = need(clip_id); const t = num(time);
         editor.commit('AI split');
-        const r = splitClip(P(), f.clip.id, t);
-        if (!r) throw new Error('Time is outside the clip');
-        const partners = [];
-        if (f.clip.linkId) for (const o of allClips(P())) if (o.linkId === f.clip.linkId && o.id !== f.clip.id && o.id !== r.right.id) { const rr = splitClip(P(), o.id, t); if (rr) partners.push(rr.right.id); }
+        const rs = splitLinked(P(), f.clip.id, t);
+        if (!rs.length) throw new Error('Time is outside the clip');
+        const r = rs[0];
         editor.refresh();
-        return ok(`Split ${f.clip.name} at ${t.toFixed(2)}s`, { left_id: r.left.id, right_id: r.right.id, partner_right_ids: partners });
+        return ok(`Split ${f.clip.name} at ${t.toFixed(2)}s`, { left_id: r.left.id, right_id: r.right.id, partner_right_ids: rs.slice(1).map(x => x.right.id) });
       },
     },
     {

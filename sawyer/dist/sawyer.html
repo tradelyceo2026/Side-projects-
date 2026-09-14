@@ -3839,12 +3839,27 @@ function splitClip(p, id, time) {
   return { left: c, right };
 }
 
+/** Split a clip and its linked partners at time; the right halves get a fresh link id. Returns [{left,right}]. */
+function splitLinked(p, id, time) {
+  const f = findClip(p, id); if (!f) return [];
+  const ids = [id];
+  if (f.clip.linkId) for (const o of allClips(p)) if (o.linkId === f.clip.linkId && o.id !== id) ids.push(o.id);
+  const out = [];
+  for (const cid of ids) { const r = splitClip(p, cid, time); if (r) out.push(r); }
+  if (out.length > 1) { const link = 'L' + out[0].right.id; for (const r of out) r.right.linkId = link; }
+  else if (out.length === 1 && out[0].right.linkId) out[0].right.linkId = null;
+  return out;
+}
+
 /** Split every clip (on every track) at time. */
 function splitAll(p, time, onlyIds = null) {
   const out = [];
+  const done = new Set();
   for (const t of p.tracks) for (const c of [...t.clips]) {
     if (onlyIds && !onlyIds.includes(c.id)) continue;
-    const r = splitClip(p, c.id, time); if (r) out.push(r);
+    if (done.has(c.id)) continue;
+    const rs = splitLinked(p, c.id, time);
+    for (const r of rs) { done.add(r.left.id); done.add(r.right.id); out.push(r); }
   }
   return out;
 }
@@ -4758,12 +4773,11 @@ function buildTools(editor) {
       execute: ({ clip_id, time }) => {
         const f = need(clip_id); const t = num(time);
         editor.commit('AI split');
-        const r = splitClip(P(), f.clip.id, t);
-        if (!r) throw new Error('Time is outside the clip');
-        const partners = [];
-        if (f.clip.linkId) for (const o of allClips(P())) if (o.linkId === f.clip.linkId && o.id !== f.clip.id && o.id !== r.right.id) { const rr = splitClip(P(), o.id, t); if (rr) partners.push(rr.right.id); }
+        const rs = splitLinked(P(), f.clip.id, t);
+        if (!rs.length) throw new Error('Time is outside the clip');
+        const r = rs[0];
         editor.refresh();
-        return ok(`Split ${f.clip.name} at ${t.toFixed(2)}s`, { left_id: r.left.id, right_id: r.right.id, partner_right_ids: partners });
+        return ok(`Split ${f.clip.name} at ${t.toFixed(2)}s`, { left_id: r.left.id, right_id: r.right.id, partner_right_ids: rs.slice(1).map(x => x.right.id) });
       },
     },
     {
@@ -5131,8 +5145,7 @@ function createTimeline(app) {
     if (app.tool === 'razor') {
       const time = pointerTime(e);
       app.commit('razor');
-      const r = splitClip(app.project, c.id, snapTime(time, [c.id]));
-      if (r && c.linkId) for (const o of allClips(app.project)) if (o.linkId === c.linkId && o.id !== c.id && o.id !== r.right.id) splitClip(app.project, o.id, r.right.start);
+      splitLinked(app.project, c.id, snapTime(time, [c.id]));
       app.refresh(); return;
     }
     if (e.shiftKey || e.ctrlKey || e.metaKey) app.select([c.id], true);
@@ -5518,7 +5531,7 @@ function createPanels(app) {
 }
 
 
-Object.assign(M, { uid, DEFAULT_SETTINGS, defaultProps, createProject, videoTracks, audioTracks, track, allClips, findClip, clipEnd, sequenceDuration, clipAt, sortTrack, newClip, placeClip, removeClip, rippleDelete, closeGaps, splitClip, splitAll, trimStart, trimEnd, moveClip, setTransition, setKeyframe, removeKeyframe, valueAt, opacityAt, gainAt, sourceTime, detectSilence, cutRangesFromClip, snapPoints, snap, createHistory, commit, undo, redo, summarize });
+Object.assign(M, { uid, DEFAULT_SETTINGS, defaultProps, createProject, videoTracks, audioTracks, track, allClips, findClip, clipEnd, sequenceDuration, clipAt, sortTrack, newClip, placeClip, removeClip, rippleDelete, closeGaps, splitClip, splitLinked, splitAll, trimStart, trimEnd, moveClip, setTransition, setKeyframe, removeKeyframe, valueAt, opacityAt, gainAt, sourceTime, detectSilence, cutRangesFromClip, snapPoints, snap, createHistory, commit, undo, redo, summarize });
 
 // ===== src/app.js =====
 // Sawyer — application shell: state, commands, keyboard, transport, persistence.

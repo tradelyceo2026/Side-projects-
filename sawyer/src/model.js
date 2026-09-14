@@ -142,12 +142,27 @@ export function splitClip(p, id, time) {
   return { left: c, right };
 }
 
+/** Split a clip and its linked partners at time; the right halves get a fresh link id. Returns [{left,right}]. */
+export function splitLinked(p, id, time) {
+  const f = findClip(p, id); if (!f) return [];
+  const ids = [id];
+  if (f.clip.linkId) for (const o of allClips(p)) if (o.linkId === f.clip.linkId && o.id !== id) ids.push(o.id);
+  const out = [];
+  for (const cid of ids) { const r = splitClip(p, cid, time); if (r) out.push(r); }
+  if (out.length > 1) { const link = 'L' + out[0].right.id; for (const r of out) r.right.linkId = link; }
+  else if (out.length === 1 && out[0].right.linkId) out[0].right.linkId = null;
+  return out;
+}
+
 /** Split every clip (on every track) at time. */
 export function splitAll(p, time, onlyIds = null) {
   const out = [];
+  const done = new Set();
   for (const t of p.tracks) for (const c of [...t.clips]) {
     if (onlyIds && !onlyIds.includes(c.id)) continue;
-    const r = splitClip(p, c.id, time); if (r) out.push(r);
+    if (done.has(c.id)) continue;
+    const rs = splitLinked(p, c.id, time);
+    for (const r of rs) { done.add(r.left.id); done.add(r.right.id); out.push(r); }
   }
   return out;
 }

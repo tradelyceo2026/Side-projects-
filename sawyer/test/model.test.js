@@ -125,3 +125,17 @@ test('snap and history', () => {
   const fwd = M.redo(h, back);
   assert.equal(M.allClips(fwd).length, 2);
 });
+
+test('splitLinked re-links the right halves so partner lookups stay pairwise', () => {
+  const p = proj();
+  const v = clip(p, 0, 10); const a = clip(p, 0, 10, 'A1', 'audio');
+  v.linkId = a.linkId = 'L1';
+  const rs = M.splitLinked(p, v.id, 4);
+  assert.equal(rs.length, 2);
+  const [rv, ra] = rs.map(r => r.right);
+  assert.equal(rv.linkId, ra.linkId);
+  assert.notEqual(rv.linkId, 'L1');
+  assert.equal(M.allClips(p).filter(c => c.linkId === 'L1').length, 2, 'left halves keep the old link');
+  const rs2 = M.splitAll(p, 7);
+  assert.equal(rs2.length, 2, 'splitAll splits each linked pair once');
+});
