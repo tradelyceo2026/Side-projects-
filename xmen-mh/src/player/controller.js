@@ -86,6 +86,9 @@ export const DEFAULT_CHAR_DEFS = {
 
 /* ------------------------------------------------------------- pure helpers */
 
+/** Phases in which the player walks around (main.js adds 'deck' for the helicarrier). */
+export const PLAYABLE_PHASES = new Set(['play', 'intro', 'deck']);
+
 export function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
 
 /** Frame-rate independent exponential smoothing towards `target`. */
@@ -530,8 +533,10 @@ export class PlayerController {
     this.rigs = rigs || {};
     this.camera = camera;
     this.domElement = domElement || null;
-    this.charDefs = charDefs || DEFAULT_CHAR_DEFS;
-    this.tuning = { ...TUNING };
+    // accepts either the table itself or an options bag { charDefs, tuning }
+    const opts = (charDefs && charDefs.charDefs) ? charDefs : null;
+    this.charDefs = (opts ? opts.charDefs : charDefs) || DEFAULT_CHAR_DEFS;
+    this.tuning = { ...TUNING, ...((opts && opts.tuning) || {}) };
 
     const roster = state.roster || Object.keys(this.charDefs);
     const id = roster[state.activeIndex || 0] || roster[0];
@@ -674,7 +679,7 @@ export class PlayerController {
 
     if (st.phase === 'skydive') {
       this.updateSkydive(pdt);
-    } else if (st.phase === 'play' || st.phase === 'intro') {
+    } else if (PLAYABLE_PHASES.has(st.phase)) {
       this.updateGround(pdt);
       this.updateActionsCombat(pdt);
     }
@@ -1023,7 +1028,7 @@ export class PlayerController {
     this.dist = this.tuning.skydiveCamDist;
     this.pitch = this.tuning.skydiveCamPitch;
     const r = this.rig; if (r && r.setAnim) r.setAnim('skydive');
-    bus.emit('phase', { phase: 'skydive' });
+    // main.js owns the 'phase' announcement for the jump; the landing below emits its own.
     return this;
   }
 
