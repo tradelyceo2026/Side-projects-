@@ -30,6 +30,10 @@ const LON0 = -92.3852;
 const AREA = { minLon: -92.42, maxLon: -92.34, minLat: 36.31, maxLat: 36.37 };
 const TILE = 0.012; // degrees per tile edge, keeps each request tiny (well under API limits)
 
+// The playable world box, in metres, derived from AREA's four corners (computed once
+// `project` is defined, below).
+let PLAY_BOX = null;
+
 // ---------------------------------------------------------------------------------
 // Small helpers
 // ---------------------------------------------------------------------------------
@@ -164,6 +168,27 @@ function project(lat, lon) {
   return [x, z];
 }
 
+function computePlayBox(area) {
+  const corners = [
+    [area.minLat, area.minLon],
+    [area.minLat, area.maxLon],
+    [area.maxLat, area.minLon],
+    [area.maxLat, area.maxLon],
+  ];
+  let minX = Infinity,
+    maxX = -Infinity,
+    minZ = Infinity,
+    maxZ = -Infinity;
+  for (const [lat, lon] of corners) {
+    const [x, z] = project(lat, lon);
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minZ = Math.min(minZ, z);
+    maxZ = Math.max(maxZ, z);
+  }
+  return { minX, maxX, minZ, maxZ };
+}
+
 function round1(v) {
   return Math.round(v * 10) / 10;
 }
@@ -255,6 +280,41 @@ function dist(x1, z1, x2, z2) {
   return Math.hypot(x2 - x1, z2 - z1);
 }
 
+// The OSM API returns *complete* ways (all their nodes) even when a way only partially
+// enters the requested tiles — a long highway can carry nodes many km outside our small
+// play area. Clip such lines to the play-area box before simplifying, so nothing renders
+// (or fails the "coordinates lie in bbox" check) far outside the map.
+function clampToBox(pt, box) {
+  return [Math.max(box.minX, Math.min(box.maxX, pt[0])), Math.max(box.minZ, Math.min(box.maxZ, pt[1]))];
+}
+
+function isInsideBox(pt, box) {
+  return pt[0] >= box.minX && pt[0] <= box.maxX && pt[1] >= box.minZ && pt[1] <= box.maxZ;
+}
+
+function clipLineToBox(pts, box) {
+  const inside = pts.map((p) => isInsideBox(p, box));
+  if (!inside.some(Boolean)) return null; // entirely outside the play area
+  // find contiguous runs of inside points, keep the longest
+  let runs = [];
+  let start = -1;
+  for (let i = 0; i < pts.length; i++) {
+    if (inside[i] && start === -1) start = i;
+    if (!inside[i] && start !== -1) {
+      runs.push([start, i - 1]);
+      start = -1;
+    }
+  }
+  if (start !== -1) runs.push([start, pts.length - 1]);
+  runs.sort((a, b) => b[1] - b[0] - (a[1] - a[0]));
+  const [s, e] = runs[0];
+  const out = [];
+  if (s > 0) out.push(clampToBox(pts[s - 1], box)); // clamped entry point for continuity
+  for (let i = s; i <= e; i++) out.push(pts[i]);
+  if (e < pts.length - 1) out.push(clampToBox(pts[e + 1], box)); // clamped exit point
+  return out;
+}
+
 // ---------------------------------------------------------------------------------
 // Classification
 // ---------------------------------------------------------------------------------
@@ -333,24 +393,22 @@ function greenKind(tags) {
 async function main() {
   const { allNodes, allWays } = await fetchAll();
 
+  PLAY_BOX = computePlayBox(AREA);
+  // Small safety margin: polygons (buildings/water/green) are compact real-world
+  // features, so any one landing outside this padded box is almost certainly a
+  // tagging oddity, not something we want to render.
+  const PAD = 200;
+  const PADDED_BOX = {
+    minX: PLAY_BOX.minX - PAD,
+    maxX: PLAY_BOX.maxX + PAD,
+    minZ: PLAY_BOX.minZ - PAD,
+    maxZ: PLAY_BOX.maxZ + PAD,
+  };
+
   const roads = [];
   const buildings = [];
   const water = [];
   const green = [];
-
-  // Track extent of everything we actually keep, to set a real bbox.
-  let minX = Infinity,
-    maxX = -Infinity,
-    minZ = Infinity,
-    maxZ = -Infinity;
-  function track(pts) {
-    for (const [x, z] of pts) {
-      if (x < minX) minX = x;
-      if (x > maxX) maxX = x;
-      if (z < minZ) minZ = z;
-      if (z > maxZ) maxZ = z;
-    }
-  }
 
   let roadId = 1;
   let buildingId = 1;
@@ -371,35 +429,40 @@ async function main() {
     if (rawPts.length < 2) continue;
     const closed = isClosed(way);
 
-    // Roads
+    // Roads — clip to the play area first: the OSM API returns whole ways even when
+    // only part of a long road passes through our tiles.
     const roadClass = classifyRoad(tags);
     if (roadClass && !closed) {
-      const pts = simplifyLine(rawPts, 1.0);
-      track(pts);
-      roads.push({
-        id: roadId++,
-        name: tags.name || tags.ref || '',
-        ref: tags.ref || undefined,
-        class: roadClass,
-        width: ROAD_WIDTH_BY_CLASS[roadClass],
-        pts,
-      });
+      const clipped = clipLineToBox(rawPts, PLAY_BOX);
+      if (clipped && clipped.length >= 2) {
+        const pts = simplifyLine(clipped, 1.0);
+        roads.push({
+          id: roadId++,
+          name: tags.name || tags.ref || '',
+          ref: tags.ref || undefined,
+          class: roadClass,
+          width: ROAD_WIDTH_BY_CLASS[roadClass],
+          pts,
+        });
+      }
     }
 
     // Buildings (closed ways only)
     if (closed && tags.building && tags.building !== 'no') {
-      const poly = simplifyPolygon(rawPts, 1.0);
-      const area = polygonArea(poly);
-      if (area >= 15) {
-        const kind = buildingKind(tags);
-        track(poly);
-        buildings.push({
-          id: buildingId++,
-          name: tags.name || '',
-          kind,
-          height: buildingHeight(tags, kind),
-          poly,
-        });
+      const [ccx, ccz] = centroid(rawPts);
+      if (isInsideBox([ccx, ccz], PADDED_BOX)) {
+        const poly = simplifyPolygon(rawPts, 1.0);
+        const area = polygonArea(poly);
+        if (area >= 15) {
+          const kind = buildingKind(tags);
+          buildings.push({
+            id: buildingId++,
+            name: tags.name || '',
+            kind,
+            height: buildingHeight(tags, kind),
+            poly,
+          });
+        }
       }
     }
 
