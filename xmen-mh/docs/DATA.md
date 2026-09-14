@@ -56,7 +56,7 @@ Not needed — file came in under the 1.5 MB target without trimming.
 | `walmart` | Walmart Supercenter | 3945.3 | -2433.5 | 120 |
 | `high_school` | Mountain Home High School | -1108.2 | 331.6 | 150 |
 | `park` | Cooper Park | 1650.4 | -1008.6 | 100 |
-| `airport` | Baxter County Airport | -1452.7 | 2951.4 | 300 |
+| `airport` | Baxter County Airport | -1452.7 | 2801.1 | 300 |
 | `lake` | Pond | 916.2 | -455.4 | 150 |
 | `landing_zone` | Courthouse Square Parking | 29.9 | -0.8 | 50 |
 
@@ -72,6 +72,7 @@ Not needed — file came in under the 1.5 MB target without trimming.
 - **airport** (Baxter County Airport): not found in fetched OSM data (it lies just south of our bbox); placed at the documented approximate coordinate (lat 36.3086, lon -92.4014, M17).
 - **lake** (Pond): Norfork Lake is outside the fetched bbox; used nearest fetched water feature "(unnamed)" at (916.2, -455.4) instead.
 - **landing_zone** (Courthouse Square Parking): matched a real parking lot near downtown at (29.9, -0.8).
+- **airport**: clamped from real-world position (-1452.7, 2951.4) to (-1452.7, 2801.1) to stay within the world bbox.
 
 ## Roads required by spec
 

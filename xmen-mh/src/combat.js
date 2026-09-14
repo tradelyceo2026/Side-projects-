@@ -74,6 +74,18 @@ function posOf(t) {
   return t && (t.pos || (t.mesh && t.mesh.position)) || null;
 }
 
+/**
+ * Body-centre height for an entity whose `pos` sits at its feet (enemies and the player).
+ * Used by the optic beam and prop impacts so horizontal shots do not sail under everyone.
+ */
+export function centerY(e) {
+  const p = posOf(e);
+  if (!p) return 0;
+  if (e.centerOffset !== undefined) return p.y + e.centerOffset;
+  if (e.height) return p.y + e.height * 0.5;
+  return p.y + 0.9;
+}
+
 /** Forward vector for the attack: explicit dir > camera > player yaw. */
 export function aimDirection(state, ctx, out = _out, flat = true) {
   const d = ctx && ctx.dir;
@@ -375,7 +387,7 @@ export class PhysicsProp {
       if (!isAlive(e)) continue;
       const ep = posOf(e);
       if (!ep) continue;
-      const dx = ep.x - this.pos.x, dy = ep.y - this.pos.y, dz = ep.z - this.pos.z;
+      const dx = ep.x - this.pos.x, dy = centerY(e) - this.pos.y, dz = ep.z - this.pos.z;
       if (dx * dx + dy * dy + dz * dz > r * r) continue;
       const key = e.id === undefined ? e : e.id;
       if (this._hitIds.has(key)) continue;
