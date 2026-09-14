@@ -649,10 +649,12 @@ test('attack runs a 3-hit combo and abilities fire per slot', () => {
   pc.update(1 / 60);
   st.input.keys.delete('KeyJ');
   assert.equal(pc.combo.index, 1, 'second hit inside the 0.6 s window');
+  pc.update(1 / 60);                    // key released
   st.time += 2.0;                       // window lapses
   st.input.keys.add('KeyJ');
   pc.update(1 / 60);
   st.input.keys.delete('KeyJ');
+  pc.update(1 / 60);
   assert.equal(pc.combo.index, 0, 'combo restarts');
 
   // abilities.js is not wired in the test environment, so useAbility returns false and

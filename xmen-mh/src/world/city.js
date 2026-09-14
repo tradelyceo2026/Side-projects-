@@ -1336,3 +1336,243 @@ export class City {
       this.pois.set(id, { id, name: id, x: 0, z: 0, radius: 60, kind: 'fallback', synthetic: true });
     }
   }
+
+  /* ---------------- terrain ---------------- */
+
+  _buildTerrain() {
+    const segs = this.opts.terrainSegments[this.quality] || 128;
+    const { minX, maxX, minZ, maxZ } = this.bounds;
+    const n = segs + 1;
+    const dx = (maxX - minX) / segs, dz = (maxZ - minZ) / segs;
+    const pos = new Float32Array(n * n * 3);
+    const uv = new Float32Array(n * n * 2);
+    const col = new Float32Array(n * n * 3);
+    const tint = makeValueNoise2D(this.opts.seed + 555);
+    const scratch = [];
+    let k = 0;
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) {
+        const x = minX + i * dx, z = minZ + j * dz;
+        const y = this.field.height(x, z, scratch);
+        pos[k * 3] = x; pos[k * 3 + 1] = y; pos[k * 3 + 2] = z;
+        uv[k * 2] = x / 18; uv[k * 2 + 1] = z / 18;
+        const t = tint(x / 260, z / 260);
+        const dry = smoothstep(2, 9, y) * 0.45;
+        col[k * 3] = lerp(0.74, 1.06, t) + dry * 0.35;
+        col[k * 3 + 1] = lerp(0.92, 1.08, t) + dry * 0.12;
+        col[k * 3 + 2] = lerp(0.70, 0.92, t) + dry * 0.05;
+        k++;
+      }
+    }
+    const idx = new Uint32Array(segs * segs * 6);
+    let m = 0;
+    for (let j = 0; j < segs; j++) {
+      for (let i = 0; i < segs; i++) {
+        const a = j * n + i, b = a + 1, c = a + n, d = c + 1;
+        idx[m++] = a; idx[m++] = c; idx[m++] = b;
+        idx[m++] = b; idx[m++] = c; idx[m++] = d;
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setIndex(new THREE.BufferAttribute(idx, 1));
+    g.computeVertexNormals();
+    g.computeBoundingSphere();
+    const mesh = new THREE.Mesh(g, this.materials.terrain);
+    mesh.name = 'terrain';
+    mesh.receiveShadow = true;
+    mesh.matrixAutoUpdate = false;
+    mesh.updateMatrix();
+    this.group.add(mesh);
+    this.meshes.push(mesh);
+    this.terrainMesh = mesh;
+    this.stats.draws++;
+    this.stats.triangles += segs * segs * 2;
+  }
+
+  /* ---------------- roads, sidewalks, plaza ---------------- */
+
+  _buildRoads() {
+    const asphalt = new MeshBuilder();
+    const dash = new MeshBuilder();
+    const concrete = new MeshBuilder();
+    const SW = this.opts.sidewalkWidth, CURB = this.opts.curbHeight;
+
+    for (const road of this.roads) {
+      const { pts, y, width, spec } = road;
+      const rib = roadRibbonPolylines(pts, y, width, 0);
+      asphalt.addRibbon(rib.left, rib.right, 8, null, true);
+
+      if (spec.dash && width >= 7) {
+        const cl = pts.map((p, i) => [p[0], y[i] + 0.03, p[1]]);
+        const l = offsetPolyline(pts, -0.18), r = offsetPolyline(pts, 0.18);
+        const dl = cl.map((p, i) => [l[i][0], p[1], l[i][1]]);
+        const dr = cl.map((p, i) => [r[i][0], p[1], r[i][1]]);
+        dash.addRibbon(dl, dr, 6, null, true);
+      }
+      if (spec.sidewalk) {
+        for (const side of [-1, 1]) {
+          const s = sidewalkPolylines(pts, y, width, side, SW, CURB, 0);
+          concrete.addRibbon(s.walkL, s.walkR, 6, null, true);
+          concrete.addRibbon(s.curbL, s.curbR, 6, null, false);
+        }
+      }
+    }
+
+    // courthouse square: a paved plaza around the origin
+    const plaza = [];
+    const R = 46;
+    for (let i = 0; i < 40; i++) {
+      const a = (i / 40) * Math.PI * 2;
+      plaza.push([Math.cos(a) * R, Math.sin(a) * R]);
+    }
+    concrete.addPolygonCap(plaza, 0, true, 6, null, (x, z) => this.getGroundHeight(x, z) + 0.09);
+
+    this._addMesh(asphalt, this.materials.asphalt, 'roads');
+    this._addMesh(concrete, this.materials.concrete, 'sidewalks');
+    this._addMesh(dash, this.materials.dash, 'road-markings', 1);
+  }
+
+  /* ---------------- lawns / parks ---------------- */
+
+  _buildGreen() {
+    const lawn = new MeshBuilder();
+    this.greens = [];
+    for (const g of (this.json.green || [])) {
+      const poly = (g.poly || []).filter((p) => Array.isArray(p) && p.length >= 2);
+      if (poly.length < 3) continue;
+      const rec = { kind: g.kind || 'grass', name: g.name || '', poly, bounds: polygonBounds(poly), area: Math.abs(polygonArea(poly)) };
+      this.greens.push(rec);
+      if (rec.kind === 'forest') continue;                     // forests are just trees on terrain
+      lawn.addPolygonCap(poly, 0, true, 10, null, (x, z) => this.getGroundHeight(x, z) + 0.06);
+    }
+    this._addMesh(lawn, this.materials.lawn, 'lawns');
+  }
+
+  /* ---------------- water ---------------- */
+
+  _buildWater() {
+    if (this.waterBodies.length === 0) return;
+    const mb = new MeshBuilder();
+    for (const w of this.waterBodies) mb.addPolygonCap(w.poly, w.surface, true, 26);
+    const mesh = this._addMesh(mb, this.materials.water, 'water', 2);
+    if (mesh) mesh.receiveShadow = false;
+  }
+
+  /* ---------------- buildings ---------------- */
+
+  _buildBuildings() {
+    const byFacade = new Map();
+    const roofFlat = new MeshBuilder();
+    const roofShingle = new MeshBuilder();
+    const trim = new MeshBuilder(true);
+    const WHITE = [1, 1, 1];
+
+    for (const b of this.buildings) {
+      let mb = byFacade.get(b.facade);
+      if (!mb) { mb = new MeshBuilder(); byFacade.set(b.facade, mb); }
+
+      if (b.kind === 'house') {
+        mb.addPrismWalls(b.poly, b.base, b.top, 4, 3.0);
+        addGableRoof(roofShingle, b.bounds, b.top, null, { maxRise: 2.9 });
+      } else if (b.kind === 'church') {
+        mb.addPrismWalls(b.poly, b.base, b.top, 4, 3.4);
+        addGableRoof(roofShingle, b.bounds, b.top, null, { maxRise: 4.2 });
+        const towerX = b.bounds.minX + Math.min(3.2, (b.bounds.maxX - b.bounds.minX) * 0.3);
+        const towerZ = b.bounds.minZ + Math.min(3.2, (b.bounds.maxZ - b.bounds.minZ) * 0.3);
+        addSteeple(trim, towerX, towerZ, b.top - 0.4, Math.max(5, b.height * 0.9), WHITE);
+      } else {
+        const parapet = b.height > 5 ? 0.75 : 0.35;
+        mb.addPrismWalls(b.poly, b.base, b.top + parapet, 4, 3.2);
+        roofFlat.addPolygonCap(b.poly, b.top, true, 6);
+        if (b.kind === 'hospital' || b.kind === 'campus' || b.area > 900) {
+          // rooftop plant boxes give the walkable roofs some silhouette
+          const c = b.centroid;
+          trim.addBox(c[0], b.top + 1.1, c[1], Math.min(8, (b.maxX - b.minX) * 0.3),
+            2.2, Math.min(8, (b.maxZ - b.minZ) * 0.3), [0.72, 0.72, 0.70], 3);
+        }
+      }
+    }
+    for (const [key, mb] of byFacade) this._addMesh(mb, this.materials[key] || this.materials.brick, 'buildings-' + key);
+    this._addMesh(roofFlat, this.materials.roofFlat, 'roofs-flat');
+    this._addMesh(roofShingle, this.materials.roofShingle, 'roofs-pitched');
+    this._addMesh(trim, this.materials.trim, 'building-trim');
+  }
+
+  /* ---------------- ASUMH campus: lawns, paths, the X sign ---------------- */
+
+  _buildCampus() {
+    const campus = this.pois.get('asumh');
+    if (!campus) return;
+    const R = campus.radius || 200;
+    const lawn = new MeshBuilder();
+    const paths = new MeshBuilder();
+    const ring = [];
+    const segs = 56;
+    for (let i = 0; i < segs; i++) {
+      const a = (i / segs) * Math.PI * 2;
+      ring.push([campus.x + Math.cos(a) * R * 0.92, campus.z + Math.sin(a) * R * 0.92]);
+    }
+    lawn.addPolygonCap(ring, 0, true, 12, null, (x, z) => this.getGroundHeight(x, z) + 0.05);
+
+    // a ring path plus four radial spokes
+    const ringPts = [];
+    for (let i = 0; i <= segs; i++) {
+      const a = (i / segs) * Math.PI * 2;
+      ringPts.push([campus.x + Math.cos(a) * R * 0.55, campus.z + Math.sin(a) * R * 0.55]);
+    }
+    const rY = ringPts.map((p) => this.getGroundHeight(p[0], p[1]) + 0.10);
+    const rib = roadRibbonPolylines(ringPts, rY, 3.0, 0);
+    paths.addRibbon(rib.left, rib.right, 5, null, true);
+    for (let s = 0; s < 4; s++) {
+      const a = (s / 4) * Math.PI * 2 + Math.PI / 4;
+      const spoke = [];
+      for (let t = 0; t <= 8; t++) {
+        const r = (t / 8) * R * 0.9;
+        spoke.push([campus.x + Math.cos(a) * r, campus.z + Math.sin(a) * r]);
+      }
+      const sy = spoke.map((p) => this.getGroundHeight(p[0], p[1]) + 0.10);
+      const sr = roadRibbonPolylines(spoke, sy, 2.6, 0);
+      paths.addRibbon(sr.left, sr.right, 5, null, true);
+    }
+    this._addMesh(lawn, this.materials.lawn, 'campus-lawn');
+    this._addMesh(paths, this.materials.concrete, 'campus-paths');
+    this._buildXSign(campus, R);
+  }
+
+  _buildXSign(campus, R) {
+    const near = this.nearestRoadPoint(campus.x, campus.z);
+    let dirX = near.x - campus.x, dirZ = near.z - campus.z;
+    const L = Math.hypot(dirX, dirZ) || 1;
+    dirX /= L; dirZ /= L;
+    const ex = campus.x + dirX * (R * 0.86);
+    const ez = campus.z + dirZ * (R * 0.86);
+    const y = this.getGroundHeight(ex, ez);
+    const yaw = Math.atan2(dirX, dirZ);
+
+    const mb = new MeshBuilder(true);
+    const GOLD = [0.95, 0.78, 0.22], BLUE = [0.12, 0.20, 0.42], STONE = [0.78, 0.75, 0.68];
+    mb.addBox(ex, y + 1.1, ez, 0.45, 2.2, 0.45, STONE, 2, yaw);       // plinth
+    const boardY = y + 3.6;
+    const place = (rotZ, len) => {
+      const geom = new THREE.BoxGeometry(len, 0.45, 0.34);
+      const m = new THREE.Matrix4().makeRotationZ(rotZ);
+      m.premultiply(new THREE.Matrix4().makeRotationY(yaw));
+      m.premultiply(new THREE.Matrix4().makeTranslation(ex, boardY, ez));
+      appendGeometry(mb, geom, m, GOLD);
+      geom.dispose();
+    };
+    // backing board + the X itself
+    const board = new THREE.BoxGeometry(3.4, 3.4, 0.18);
+    const bm = new THREE.Matrix4().makeRotationY(yaw);
+    bm.premultiply(new THREE.Matrix4().makeTranslation(ex, boardY, ez));
+    appendGeometry(mb, board, bm, BLUE);
+    board.dispose();
+    place(Math.PI / 4, 3.9);
+    place(-Math.PI / 4, 3.9);
+    const mesh = this._addMesh(mb, this.materials.sign, 'x-sign');
+    this.xSign = mesh;
+    this.xSignPos = new THREE.Vector3(ex, boardY, ez);
+  }

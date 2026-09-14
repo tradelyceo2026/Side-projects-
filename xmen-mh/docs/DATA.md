@@ -53,8 +53,8 @@ Not needed — file came in under the 1.5 MB target without trimming.
 | `downtown` | Downtown Mountain Home | 0.0 | 0.0 | 150 |
 | `asumh` | ASUMH Campus | -520.1 | 1470.2 | 250 |
 | `hospital` | Baxter Regional Medical Center | -1056.0 | -888.9 | 150 |
-| `walmart` | Walmart Supercenter | 3945.3 | -2433.5 | 120 |
-| `high_school` | Mountain Home High School | -1108.2 | 331.6 | 150 |
+| `walmart` | Walmart Supercenter | 3979.0 | -2194.1 | 120 |
+| `high_school` | Mountain Home High School | -1072.9 | 329.0 | 150 |
 | `park` | Cooper Park | 1650.4 | -1008.6 | 100 |
 | `airport` | Baxter County Airport | -1452.7 | 2801.1 | 300 |
 | `lake` | Pond | 916.2 | -455.4 | 150 |
@@ -66,8 +66,8 @@ Not needed — file came in under the 1.5 MB target without trimming.
 - **downtown** (Downtown Mountain Home): courthouse square, same as `courthouse`, per spec.
 - **asumh** (ASUMH Campus): not found by name in fetched OSM data; placed at the documented campus coordinate (lat 36.322, lon -92.391, 1600 S College St).
 - **hospital** (Baxter Regional Medical Center): matched OSM feature "Baxter Regional Medical Center" at (-1056, -888.9).
-- **walmart** (Walmart Supercenter): matched OSM feature "North Walmart Drive" at (3945.3, -2433.5).
-- **high_school** (Mountain Home High School): matched OSM feature "Mountain Home High School" at (-1108.2, 331.6).
+- **walmart** (Walmart Supercenter): matched OSM feature "Walmart Supercenter" at (3979, -2194.1).
+- **high_school** (Mountain Home High School): matched OSM feature "Mountain Home High School" at (-1072.9, 329).
 - **park** (Cooper Park): matched OSM feature "Cooper Park" at (1650.4, -1008.6).
 - **airport** (Baxter County Airport): not found in fetched OSM data (it lies just south of our bbox); placed at the documented approximate coordinate (lat 36.3086, lon -92.4014, M17).
 - **lake** (Pond): Norfork Lake is outside the fetched bbox; used nearest fetched water feature "(unnamed)" at (916.2, -455.4) instead.

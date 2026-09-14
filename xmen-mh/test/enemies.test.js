@@ -268,10 +268,10 @@ test('releasing a held enemy lets it fly and take fall damage on landing', () =>
   thug.held = false;
   thug.vel.set(0, -25, 0); // release with a big downward velocity -> should hurt on landing
   const hpBefore = thug.hp;
-  for (let i = 0; i < 200 && !thug.isDead && thug.airborne !== false; i++) {
+  for (let i = 0; i < 200 && !thug.isDead; i++) {
     state.time += 0.05;
     mgr.update(0.05, state);
-    if (!thug.airborne) break;
+    if (!thug.isDead && !thug.airborne) break;
   }
   assert.equal(thug.airborne, false);
   assert.ok(thug.pos.y <= 0.0001);

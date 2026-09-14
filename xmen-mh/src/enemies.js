@@ -429,8 +429,12 @@ export class Enemy {
     const playerPos = player?.pos ?? this.pos;
     const dist = distance2D(this.pos, playerPos);
 
+    // Only throttle idle/patrol wandering — anything actively engaged
+    // (chasing, attacking, staggered, controlled) always ticks fully so
+    // combat stays responsive regardless of the player's distance.
+    const idling = this.state === 'idle' || this.state === 'patrol';
     const frame = this._manager?._frame ?? 0;
-    const throttled = dist > ACTIVE_RADIUS && ((frame + this._skipOffset) % FAR_UPDATE_INTERVAL !== 0);
+    const throttled = idling && dist > ACTIVE_RADIUS && ((frame + this._skipOffset) % FAR_UPDATE_INTERVAL !== 0);
     if (!throttled) this._think(sdt, state, dist, playerPos);
 
     this._move(sdt);
