@@ -9,7 +9,7 @@ import {
 } from '../src/abilities.js';
 import {
   meleeAttack, damageEntity, applyRegen, PhysicsProp, MELEE, PROP_KINDS,
-  spawnProps, clearProps,
+  spawnProps, clearProps, playerDamageHook, installPlayerDamageHook,
 } from '../src/combat.js';
 
 /* ------------------------------------------------------------------ fakes */
@@ -352,6 +352,22 @@ test('diamond form blocks all damage for 6 s, slows the player, then wears off',
   assert.equal(s.player.speedMul, 1);
   assert.equal(damageEntity(s, s.player, 35, 'thug'), 35);
   assert.equal(s.player.hp, 65);
+});
+
+test('the enemy damage hook respects diamond form and is installable', () => {
+  const s = fakeState('emma');
+  s.player.hp = 100;
+  assert.equal(playerDamageHook(12, { state: s, source: 'thug' }), 12);
+  assert.equal(s.player.hp, 88);
+
+  useAbility(s, 'diamond', makeCtx(s));
+  assert.equal(playerDamageHook(40, { state: s, source: 'thug' }), 0);
+  assert.equal(s.player.hp, 88, 'diamond form eats enemy melee too');
+
+  let registered = null;
+  assert.equal(installPlayerDamageHook({ onPlayerDamage: (fn) => { registered = fn; } }), true);
+  assert.equal(registered, playerDamageHook);
+  assert.equal(installPlayerDamageHook(null), false);
 });
 
 test('psychic marks enemies within 12 m as controlled by emma for 5 s', () => {

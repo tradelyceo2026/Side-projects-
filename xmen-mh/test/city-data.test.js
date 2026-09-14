@@ -151,12 +151,13 @@ test('buildings have valid kind/height/poly and sane area', () => {
   }
 });
 
-test('at least one building of each key kind exists (hospital, campus or house, civic, commercial)', () => {
+test('at least one building of each key kind exists (hospital, campus, house, civic, commercial)', () => {
   const kinds = new Set(city.buildings.map((b) => b.kind));
   assert.ok(kinds.has('hospital'), 'expected at least one hospital building');
   assert.ok(kinds.has('civic'), 'expected at least one civic building');
   assert.ok(kinds.has('commercial'), 'expected at least one commercial building');
   assert.ok(kinds.has('house'), 'expected residential (house) buildings');
+  assert.ok(kinds.has('campus'), 'expected at least one campus building (see docs/DATA.md for the ASUMH note)');
 });
 
 test('water and green polygons are well-formed and within bbox', () => {

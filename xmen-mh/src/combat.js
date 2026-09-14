@@ -177,6 +177,37 @@ export function damageEntity(state, target, amount, source = 'unknown') {
   return dealt;
 }
 
+/**
+ * Damage enemies deal to the player, routed through the damage model so diamond form,
+ * the hp floor and the game-over phase all apply. enemies.js emits its own `hit` event
+ * for this path, so this handler deliberately stays quiet.
+ */
+export function playerDamageHook(amount, info = {}) {
+  const st = info.state || _world;
+  const p = st && st.player;
+  if (!p || !(amount > 0)) return 0;
+  if (isInvulnerable(st)) {
+    bus.emit('sfx', { name: 'diamond_deflect', pos: p.pos, gain: 0.6 });
+    return 0;
+  }
+  const before = p.hp === undefined ? 100 : p.hp;
+  const dealt = Math.min(before, amount);
+  p.hp = Math.max(0, before - amount);
+  if (p.hp <= 0 && st.phase !== 'gameover') {
+    st.phase = 'gameover';
+    bus.emit('phase', { phase: 'gameover' });
+  }
+  return dealt;
+}
+
+/** Registers playerDamageHook with an enemies module. Safe to call repeatedly. */
+export function installPlayerDamageHook(mod) {
+  if (mod && typeof mod.onPlayerDamage === 'function') { mod.onPlayerDamage(playerDamageHook); return true; }
+  return false;
+}
+// Best effort: wire ourselves up when enemies.js is present, so goon hits respect diamond form.
+import('./enemies.js').then(installPlayerDamageHook).catch(() => {});
+
 /* ------------------------------------------------------------------ bleed (claws) */
 
 export function applyBleed(target, dps = MELEE.bleedDps, seconds = MELEE.bleedTime, source = 'claws') {

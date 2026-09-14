@@ -35,11 +35,11 @@ z = -(lat - lat0) * 110540
 ## Counts
 
 - roads: 2004 (service=1238, residential=670, primary=46, tertiary=39, secondary=11)
-- buildings: 1716 (house=1702, commercial=9, hospital=1, civic=1, church=3)
+- buildings: 1720 (house=1702, commercial=9, hospital=1, civic=1, church=3, campus=4)
 - water polygons: 33
 - green polygons: 19
 - POIs: 10
-- final `city.json` size: 602.6 KB (limit 1536 KB)
+- final `city.json` size: 603.1 KB (limit 1536 KB)
 
 ## Size trimming
 
@@ -74,6 +74,7 @@ Not needed — file came in under the 1.5 MB target without trimming.
 - **lake** (Pond): Norfork Lake itself is not in the fetched OSM data (its nearest shoreline near Mountain Home is ~10+ km away, near Gamaliel, AR); used the nearest sizeable fetched water feature "(unnamed)" (~3852 m²) instead.
 - **landing_zone** (Courthouse Square Parking): matched a real parking lot near downtown at (29.9, -0.8).
 - **airport**: clamped from real-world position (-7549, -3741.1) to (-3120.7, -3741.1) to stay within the world bbox.
+- **campus buildings**: OSM has no mapped `building=*` footprints for the ASUMH campus in this area (South College St is covered only by individual address-point nodes, verified by direct API query). Added 4 synthetic placeholder building footprints (kind="campus", ids 1717-1720) centered on the `asumh` POI so `city.js` still has distinct campus geometry for the world renderer — these are NOT real OSM building outlines and should be treated as a stand-in.
 
 ## Roads required by spec
 
