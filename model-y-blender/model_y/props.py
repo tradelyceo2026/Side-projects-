@@ -177,6 +177,29 @@ class ModelYProperties(PropertyGroup):
     live_screen: BoolProperty(name="Live Screen", default=True,
                               description="Repaint the touchscreen as the car changes")
 
+    # --- photoreal
+    look: EnumProperty(
+        name="Look",
+        items=[("studio", "Studio", "Black sweep, big softboxes, advert lighting"),
+               ("sunset", "Sunset", "Physical sky low over damp asphalt"),
+               ("garage", "Garage", "Dim concrete box, ceiling strips, wet floor")],
+        default="studio",
+    )
+    shot: EnumProperty(
+        name="Shot",
+        items=[("three_quarter", "3/4 Front", "The classic hero angle"),
+               ("front_low", "Front Low", "Low and close on the nose"),
+               ("rear_three_quarter", "3/4 Rear", "Shoulder line and tail"),
+               ("side", "Side", "Long lens profile, the way a spec shot is taken"),
+               ("wheel", "Wheel", "Tight on the Uberturbine and caliper"),
+               ("cabin", "Cabin", "Over the dash at the touchscreen")],
+        default="three_quarter",
+    )
+    samples: IntProperty(name="Samples", min=16, max=4096, default=256,
+                         description="Cycles samples; EEVEE uses a quarter of this")
+    subdiv_levels: IntProperty(name="Subdivision", min=0, max=3, default=2,
+                               description="Render-time subdivision on the body")
+
     # --- baking
     bake_seconds: FloatProperty(name="Seconds", min=0.5, max=120.0, default=6.0)
     bake_start_frame: IntProperty(name="Start Frame", min=0, default=1)

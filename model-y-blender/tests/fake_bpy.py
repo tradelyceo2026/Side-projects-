@@ -8,6 +8,7 @@ time someone clicks Build inside Blender.
 
 from __future__ import annotations
 
+import math
 import sys
 import types
 
@@ -23,6 +24,38 @@ class Vector(tuple):
 
     def __neg__(self):
         return Vector(tuple(-v for v in self))
+
+    def __sub__(self, other):
+        return Vector(a - b for a, b in zip(self, other))
+
+    def __add__(self, other):
+        return Vector(a + b for a, b in zip(self, other))
+
+    def __mul__(self, k):
+        return Vector(a * k for a in self)
+
+    @property
+    def length(self):
+        return math.sqrt(sum(a * a for a in self))
+
+    def normalized(self):
+        n = self.length or 1.0
+        return Vector(a / n for a in self)
+
+    def to_track_quat(self, track="-Z", up="Y"):
+        # only the euler matters to the callers; aim roughly down the vector
+        direction = self.normalized()
+        yaw = math.atan2(direction[1], direction[0])
+        pitch = math.asin(max(-1.0, min(1.0, direction[2])))
+        return _Quaternion(math.pi / 2 - pitch, 0.0, yaw + math.pi / 2)
+
+
+class _Quaternion:
+    def __init__(self, x, y, z):
+        self._euler = (x, y, z)
+
+    def to_euler(self):
+        return list(self._euler)
 
 
 class Matrix:
@@ -124,6 +157,7 @@ class Modifier:
         self.type = kind
         self.levels = 0
         self.render_levels = 0
+        self.use_limit_surface = True
 
 
 class Modifiers(list):
@@ -131,6 +165,16 @@ class Modifiers(list):
         mod = Modifier(name, kind)
         self.append(mod)
         return mod
+
+    def get(self, name, default=None):
+        for mod in self:
+            if mod.name == name:
+                return mod
+        return default
+
+    def remove(self, mod):
+        if mod in self:
+            list.remove(self, mod)
 
 
 class Constraint:
@@ -154,12 +198,16 @@ class Object:
         self.data = data
         self._location = [0.0, 0.0, 0.0]
         self.rotation_euler = Euler()
-        self.rotation_mode = "XYZ"
+        self.rotation_mode = "QUATERNION" if type(data).__name__ == "Camera" else "XYZ"
         self.scale = [1.0, 1.0, 1.0]
         self.parent = None
         self.matrix_parent_inverse = Matrix()
         self.empty_display_type = "PLAIN_AXES"
         self.empty_display_size = 1.0
+        self.hide_render = False
+        self.hide_viewport = False
+        self.type = {"Mesh": "MESH", "Camera": "CAMERA",
+                     "Light": "LIGHT"}.get(type(data).__name__, "EMPTY")
         self.modifiers = Modifiers()
         self.constraints = Constraints()
         self.animation_data = None
@@ -289,6 +337,43 @@ class Node:
         elif idname == "ShaderNodeBackground":
             self.inputs["Color"] = Socket("Color", (0, 0, 0, 1))
             self.inputs["Strength"] = Socket("Strength", 1.0)
+            self.outputs["Background"] = Socket("Background")
+        elif idname == "ShaderNodeOutputWorld":
+            self.inputs["Surface"] = Socket("Surface")
+        elif idname == "ShaderNodeTexNoise":
+            for sock, default in (("Vector", None), ("Scale", 5.0), ("Detail", 2.0),
+                                  ("Roughness", 0.5), ("Distortion", 0.0)):
+                self.inputs[sock] = Socket(sock, default)
+            self.outputs["Fac"] = Socket("Fac")
+            self.outputs["Color"] = Socket("Color")
+        elif idname == "ShaderNodeTexCoord":
+            for sock in ("Generated", "Normal", "UV", "Object", "Camera", "Window"):
+                self.outputs[sock] = Socket(sock)
+        elif idname == "ShaderNodeBump":
+            for sock, default in (("Strength", 1.0), ("Distance", 1.0),
+                                  ("Height", 1.0), ("Normal", None)):
+                self.inputs[sock] = Socket(sock, default)
+            self.outputs["Normal"] = Socket("Normal")
+        elif idname == "ShaderNodeValToRGB":
+            self.inputs["Fac"] = Socket("Fac", 0.5)
+            self.outputs["Color"] = Socket("Color")
+            self.outputs["Alpha"] = Socket("Alpha")
+            self.color_ramp = types.SimpleNamespace(
+                elements=[types.SimpleNamespace(position=0.0, color=(0, 0, 0, 1)),
+                          types.SimpleNamespace(position=1.0, color=(1, 1, 1, 1))])
+        elif idname == "ShaderNodeTexSky":
+            self.outputs["Color"] = Socket("Color")
+            self.sky_type = "NISHITA"
+            self.sun_elevation = 0.26
+            self.sun_rotation = 0.0
+            self.sun_intensity = 1.0
+            self.altitude = 0.0
+            self.air_density = 1.0
+            self.dust_density = 1.0
+        elif idname == "ShaderNodeEmission":
+            self.inputs["Color"] = Socket("Color", (1, 1, 1, 1))
+            self.inputs["Strength"] = Socket("Strength", 1.0)
+            self.outputs["Emission"] = Socket("Emission")
 
 
 class Nodes(list):
@@ -346,6 +431,8 @@ class Camera:
     def __init__(self, name):
         self.name = name
         self.lens = 50.0
+        self.dof = types.SimpleNamespace(use_dof=False, focus_distance=10.0,
+                                         focus_object=None, aperture_fstop=2.8)
 
 
 class Light:
@@ -354,6 +441,11 @@ class Light:
         self.type = kind
         self.energy = 100.0
         self.size = 1.0
+        self.size_y = 1.0
+        self.shape = "SQUARE"
+        self.color = (1.0, 1.0, 1.0)
+        self.angle = 0.526
+        self.use_shadow = True
 
 
 class DataCollection(dict):
@@ -458,6 +550,8 @@ def install() -> types.ModuleType:
         frame_current=1,
         frame_start=1,
         frame_end=250,
+        view_settings=types.SimpleNamespace(view_transform="Standard", look="None",
+                                            exposure=0.0, gamma=1.0),
     )
     screen = types.SimpleNamespace(areas=[])
     bpy.context = types.SimpleNamespace(

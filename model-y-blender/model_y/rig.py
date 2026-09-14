@@ -62,6 +62,10 @@ def update(state: CarState, dt: float, objects: dict[str, bpy.types.Object] | No
     objs = objects if objects is not None else car_objects()
     if not objs:
         return
+    for obj in objs.values():
+        # writing rotation_euler on a quaternion-mode object does nothing
+        if obj.rotation_mode not in ("XYZ", "YXZ"):
+            obj.rotation_mode = "XYZ"
 
     # wheels: rotation is speed / rolling radius, integrated
     RIG.wheel_angle -= state.speed_ms / SPEC.wheels.rolling_radius * dt

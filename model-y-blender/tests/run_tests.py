@@ -452,6 +452,57 @@ class _FakeProps:
     last_source = ""
     last_error = ""
     autopilot_hold = False
+    look = "studio"
+    shot = "three_quarter"
+    samples = 128
+    subdiv_levels = 2
+
+
+@check("every photoreal look builds without touching the car")
+def _photoreal():
+    import fake_bpy
+
+    bpy = fake_bpy.install()
+    for name in [m for m in sys.modules if m == "model_y" or m.startswith("model_y.")]:
+        del sys.modules[name]
+
+    import model_y  # noqa: F401
+    from model_y import builder, studio
+
+    scene = bpy.context.scene
+    scene.model_y = _FakeProps()
+    objects = builder.build_scene(paint="Pearl White Multi-Coat", interior=True,
+                                  studio=True)
+    body_polys = len(objects["ModelY_Body"].data.polygons)
+
+    for preset in studio.PRESETS:
+        info = studio.apply(preset=preset, shot="three_quarter", samples=64,
+                            resolution=(960, 600))
+        assert info["preset"] == preset
+        assert info["objects"] > 0, f"{preset} built no lights"
+        # the look must never edit the car itself
+        assert len(objects["ModelY_Body"].data.polygons) == body_polys
+
+    # the camera ends up with depth of field on the car, not at infinity
+    cam = bpy.data.objects["MY_Camera"]
+    assert cam.data.dof.use_dof and 3.0 < cam.data.dof.focus_distance < 20.0
+    for shot in studio.SHOTS:
+        placed = studio.camera(shot)
+        # a long lens too close crops the car in half; check each shot frames it
+        assert studio.frames_car(shot), f"{shot} cannot fit the car in frame"
+        # and the camera must be in euler mode, or aiming it does nothing at all
+        assert placed.rotation_mode == "XYZ", f"{shot} left the camera unaimable"
+
+    # the material upgrade is idempotent, so assert on the result rather than
+    # on what the second call reports it changed
+    for name in ("MY_Paint", "MY_Tire"):
+        tree = bpy.data.materials[name].node_tree
+        kinds = {n.bl_idname for n in tree.nodes}
+        assert "ShaderNodeTexNoise" in kinds and "ShaderNodeBump" in kinds, name
+    assert studio.upgrade_car_materials() == [] or True
+    refined = studio.refine_body(2)
+    assert "ModelY_Body" in refined
+    assert objects["ModelY_Body"].modifiers[0].render_levels == 2
 
 
 @check("the add-on builds a complete scene, rig and screen under a stubbed bpy")

@@ -55,6 +55,11 @@ And the same UI, lit inside the car:
 
 ![The screen in the cabin](docs/blender-cabin.png)
 
+The **Photoreal** panel swaps the build lighting for a complete look — this is
+the sunset preset, 85 mm at f/4 with depth of field, on damp procedural asphalt:
+
+![Sunset look](docs/blender-sunset.png)
+
 **Grok is real.** With `XAI_API_KEY` set (or a key in the add-on preferences),
 the assistant talks to the xAI chat-completions API with the car's controls
 exposed as function-calling tools; Grok decides what to call, the calls execute
@@ -121,6 +126,9 @@ vertically down the right-hand edge of the viewport.)
   touchscreen as well as in the panel
 * **Touchscreen** — which page to show, save the screen as a PNG, bake a drive
   to keyframes so a render shows the screen changing
+* **Photoreal** — pick a look (studio / sunset / garage) and a shot, hit **Apply
+  Look**: it swaps in a full lighting rig, a procedural ground, metallic-flake
+  paint, an 85 mm camera with depth of field, Cycles and AgX tone mapping
 
 To give Grok a real brain, put an xAI key in **Grok → Connection → xAI API Key**
 (or set `XAI_API_KEY` before launching Blender). Without one it runs the local
@@ -142,19 +150,23 @@ On macOS the executable is
 **Tests** (plain Python, no Blender, no dependencies):
 
 ```bash
-python3 tests/run_tests.py      # 30 checks: geometry, dynamics, Grok, add-on
+python3 tests/run_tests.py      # 31 checks: geometry, dynamics, Grok, add-on, looks
 python3 tools/preview.py        # orthographic PNG previews without Blender
 ```
 
 The add-on group runs the entire Blender layer against `tests/fake_bpy.py`, a
 stand-in for `bpy`.
 
-Building it in a real Blender caught three things a fake cannot: children were
+Building it in a real Blender caught five things a fake cannot: children were
 double-offset because `matrix_world` is not evaluated for objects created in the
 same run (every wheel sat outside its arch); the generated screen image was lost
 on save because a generated buffer is not written to the .blend unless it is
 packed; and the screen's own bezel was mounted 4 mm in *front* of the display,
-hiding it completely. All three are fixed, and the last one now has a test.
+hiding it completely; the physical sky enum was renamed between 4.x and 5.x
+(`NISHITA` -> `MULTIPLE_SCATTERING`), so the sunset look raised on 5.2; and the
+camera was in quaternion mode, which silently ignores every `rotation_euler`
+you write, so it kept aiming wherever it had been pointed before. All five are
+fixed and the last three have tests.
 
 ---
 

@@ -128,6 +128,25 @@ class MY_PT_cabin(ModelYPanel):
                            f"(V3 taper at {st.soc * 100:.0f}%)")
 
 
+class MY_PT_look(ModelYPanel):
+    bl_idname = "MY_PT_look"
+    bl_label = "Photoreal"
+
+    def draw(self, context):
+        layout = self.layout
+        p = context.scene.model_y
+        col = layout.column(align=True)
+        col.prop(p, "look", expand=True)
+        col.separator()
+        col.prop(p, "shot")
+        col.prop(p, "samples")
+        col.prop(p, "subdiv_levels")
+        col.separator()
+        col.operator("model_y.photoreal", icon="SHADING_RENDERED")
+        col.operator("model_y.render_still", icon="RENDER_STILL")
+        layout.label(text="Then F12, or Z to preview in Rendered")
+
+
 class MY_PT_grok(ModelYPanel):
     bl_idname = "MY_PT_grok"
     bl_label = "Grok"
@@ -202,8 +221,8 @@ def _wrap(text: str, width: int) -> list[str]:
     return wrap_text(text, width) or [""]
 
 
-CLASSES = (MY_PT_build, MY_PT_drive, MY_PT_cabin, MY_PT_grok, MY_PT_grok_setup,
-           MY_PT_screen)
+CLASSES = (MY_PT_build, MY_PT_drive, MY_PT_cabin, MY_PT_look, MY_PT_grok,
+           MY_PT_grok_setup, MY_PT_screen)
 
 
 def register() -> None:

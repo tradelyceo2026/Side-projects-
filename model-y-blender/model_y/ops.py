@@ -214,6 +214,44 @@ class MY_OT_bake(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class MY_OT_photoreal(bpy.types.Operator):
+    """Build a photoreal lighting setup and point the camera at the car."""
+
+    bl_idname = "model_y.photoreal"
+    bl_label = "Apply Look"
+    bl_description = ("Replace the build lights with a studio, sunset or garage "
+                      "setup, upgrade the materials and frame a shot")
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        from . import studio
+
+        p = context.scene.model_y
+        info = studio.apply(preset=p.look, shot=p.shot, samples=p.samples,
+                            resolution=(context.scene.render.resolution_x,
+                                        context.scene.render.resolution_y))
+        refined = studio.refine_body(p.subdiv_levels)
+        self.report({"INFO"}, f"{p.look} look on {info['engine']}, "
+                              f"{len(refined)} objects refined")
+        return {"FINISHED"}
+
+
+class MY_OT_render_still(bpy.types.Operator):
+    """Render the current shot at full quality."""
+
+    bl_idname = "model_y.render_still"
+    bl_label = "Render Still"
+    bl_options = {"REGISTER"}
+
+    def execute(self, context):
+        from . import studio
+
+        p = context.scene.model_y
+        studio.camera(p.shot)
+        bpy.ops.render.render("INVOKE_DEFAULT", write_still=False)
+        return {"FINISHED"}
+
+
 class MY_OT_save_screen(bpy.types.Operator):
     bl_idname = "model_y.save_screen"
     bl_label = "Save Screen PNG"
@@ -242,7 +280,8 @@ class MY_OT_set_temperature(bpy.types.Operator):
 
 
 CLASSES = (MY_OT_build, MY_OT_reset, MY_OT_drive, MY_OT_launch, MY_OT_ask_grok,
-           MY_OT_clear_chat, MY_OT_bake, MY_OT_save_screen, MY_OT_set_temperature)
+           MY_OT_clear_chat, MY_OT_bake, MY_OT_photoreal, MY_OT_render_still,
+           MY_OT_save_screen, MY_OT_set_temperature)
 
 
 def register() -> None:
