@@ -4,7 +4,8 @@ An open-source non-linear video editor that runs entirely in your browser. Impor
 multi-track timeline, add titles, transitions, colour and keyframed motion, mix the audio, and export a real
 MP4 or WebM. Nothing is uploaded anywhere. There is an optional AI assistant that edits the timeline for you.
 
-**Play with it:** open `dist/sawyer.html` (one file, no install) in Chrome, Edge, or any Chromium browser.
+**Play with it:** open `dist/sawyer.html` (one file, no install) in Chrome, Edge, or any Chromium browser,
+or use the hosted copy: https://claude.ai/code/artifact/7fcf38a8-2458-45d7-8b2c-37d36400e003
 Firefox and Safari work for editing and fall back to a real-time recorder for export.
 
 ## What works today
