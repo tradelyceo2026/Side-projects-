@@ -1,0 +1,923 @@
+<title>Intent Layer Concept</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --void:#07090C; --deck:#0E1116; --panel:#141921; --panel2:#1A202A; --edge:#232B36; --edge2:#323C4A;
+    --ink:#E9EDF2; --dim:#8A94A3; --faint:#5A6373;
+    --amber:#F2A93B; --cyan:#4FD1E0; --violet:#9B8CFF; --green:#4FD98A; --red:#E2574C; --white:#FFFFFF;
+    --grok:#B9C2CF; --claude:#D9915B; --edge-ai:#5EE0B0;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    margin:0; background:var(--void); color:var(--ink);
+    font-family:"Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size:15px; line-height:1.4; padding:0;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono, .num { font-family:"JetBrains Mono", ui-monospace, Menlo, monospace; font-variant-numeric:tabular-nums; }
+  button { font:inherit; color:inherit; background:none; border:none; cursor:pointer; }
+  button:focus-visible, [tabindex]:focus-visible { outline:2px solid var(--cyan); outline-offset:2px; }
+
+  /* ---------- page frame ---------- */
+  .page { max-width:1320px; margin:0 auto; padding:18px 16px 40px; }
+  .masthead { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:12px; }
+  .masthead h1 { font-size:19px; font-weight:700; letter-spacing:.02em; margin:0; }
+  .masthead .sub { color:var(--dim); font-size:13px; }
+  .tag { font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--amber);
+         border:1px solid rgba(242,169,59,.4); padding:2px 8px; border-radius:2px; font-weight:600; }
+
+  /* ---------- the car screen ---------- */
+  .screen {
+    background:var(--deck); border:1px solid var(--edge); border-radius:14px; overflow:hidden;
+    box-shadow:0 30px 80px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.04);
+    display:grid; grid-template-rows:auto 1fr auto; min-height:660px;
+  }
+  /* status strip */
+  .status { display:flex; align-items:center; gap:18px; padding:9px 16px; border-bottom:1px solid var(--edge);
+            background:linear-gradient(180deg,#121722,#0E1116); font-size:12.5px; }
+  .status .gear { display:flex; gap:5px; }
+  .status .gear b { color:var(--faint); font-weight:600; font-size:12.5px; width:14px; text-align:center; }
+  .status .gear b.on { color:var(--white); }
+  .status .spacer { flex:1; }
+  .status .pill { color:var(--dim); display:flex; align-items:center; gap:5px; }
+  .dot { width:6px; height:6px; border-radius:50%; background:var(--green); display:inline-block; }
+
+  /* main split */
+  .main { display:grid; grid-template-columns:minmax(260px,34%) 1fr; min-height:0; }
+  .left { border-right:1px solid var(--edge); padding:16px; display:flex; flex-direction:column; gap:14px; min-width:0; }
+  .right { padding:16px; display:flex; flex-direction:column; gap:12px; min-width:0; }
+
+  /* car + battery */
+  .carbox { text-align:center; }
+  .carbox svg { width:100%; max-width:168px; height:auto; }
+  .soc { display:flex; align-items:baseline; justify-content:center; gap:8px; margin-top:2px; }
+  .soc .big { font-size:38px; font-weight:700; letter-spacing:-.02em; }
+  .soc .unit { font-size:15px; color:var(--dim); }
+  .soc .rng { color:var(--dim); font-size:13px; margin-left:6px; }
+  .bar { height:5px; background:#222A35; border-radius:3px; overflow:hidden; margin-top:8px; position:relative; }
+  .bar i { display:block; height:100%; background:linear-gradient(90deg,#3FA9F5,#4FD98A); transition:width .5s; }
+  .bar .limit { position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--dim); }
+
+  .readouts { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .ro { background:var(--panel); border:1px solid var(--edge); border-radius:8px; padding:8px 10px; }
+  .ro span { display:block; color:var(--faint); font-size:10px; letter-spacing:.1em; text-transform:uppercase; }
+  .ro b { font-size:17px; font-weight:600; }
+  .ro.warn { border-color:rgba(242,169,59,.5); } .ro.warn b { color:var(--amber); }
+
+  .standing h3, .right h3 { font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint);
+                            margin:0 0 8px; font-weight:600; display:flex; justify-content:space-between; align-items:center; }
+  .intent-list { display:flex; flex-direction:column; gap:6px; }
+  .intent { display:flex; gap:8px; align-items:flex-start; background:var(--panel); border:1px solid var(--edge);
+            border-left:2px solid var(--violet); border-radius:6px; padding:7px 9px; font-size:12.5px; }
+  .intent .x { color:var(--faint); font-size:15px; line-height:1; margin-left:auto; padding:0 2px; }
+  .intent .x:hover { color:var(--red); }
+  .empty { color:var(--faint); font-size:12.5px; font-style:italic; }
+
+  /* cards */
+  .cards { display:flex; flex-direction:column; gap:9px; }
+  .card { background:var(--panel); border:1px solid var(--edge); border-radius:10px; padding:11px 13px;
+          animation:rise .32s cubic-bezier(.2,.8,.3,1); }
+  @keyframes rise { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+  @media (prefers-reduced-motion:reduce) { .card { animation:none; } }
+  .card.anticipate { border-left:3px solid var(--amber); }
+  .card.propose { border-left:3px solid var(--cyan); }
+  .card.done { border-left:3px solid var(--green); opacity:.72; }
+  .card.blocked { border-left:3px solid var(--red); }
+  .card .ch { display:flex; align-items:center; gap:8px; margin-bottom:3px; }
+  .card .ch b { font-size:14px; font-weight:600; }
+  .card .ch .kind { font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--faint); margin-left:auto; }
+  .card p { margin:0; color:var(--dim); font-size:13px; }
+  .card .why { margin-top:5px; font-size:11.5px; color:var(--faint); }
+  .card .acts { display:flex; gap:7px; margin-top:9px; flex-wrap:wrap; }
+  .btn { border:1px solid var(--edge2); border-radius:6px; padding:6px 13px; font-size:13px; font-weight:500; background:var(--panel2); }
+  .btn:hover { background:#222B37; }
+  .btn.go { background:var(--cyan); border-color:var(--cyan); color:#06232A; font-weight:600; }
+  .btn.go:hover { filter:brightness(1.08); }
+  .btn.ghost { background:none; color:var(--dim); }
+
+  /* conversation */
+  .convo { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:9px; padding-right:4px; min-height:120px; }
+  .msg { max-width:88%; padding:8px 11px; border-radius:10px; font-size:13.5px; white-space:pre-wrap; word-break:break-word; }
+  .msg.me { align-self:flex-end; background:#243040; }
+  .msg.ai { align-self:flex-start; background:var(--panel); border:1px solid var(--edge); }
+  .msg.tool { align-self:flex-start; background:none; border:1px dashed var(--edge2); color:var(--faint);
+              font-family:"JetBrains Mono", monospace; font-size:11px; padding:4px 9px; }
+  .who { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:.11em; text-transform:uppercase;
+         color:var(--faint); margin-bottom:4px; font-weight:600; }
+  .brain { display:inline-flex; align-items:center; gap:4px; padding:1px 6px; border-radius:3px; font-size:9.5px; font-weight:700; letter-spacing:.07em; }
+  .brain.grok { background:rgba(185,194,207,.15); color:var(--grok); }
+  .brain.claude { background:rgba(217,145,91,.16); color:var(--claude); }
+  .brain.edge { background:rgba(94,224,176,.14); color:var(--edge-ai); }
+
+  .ask { display:flex; gap:8px; }
+  .ask input { flex:1; background:#0A0D12; border:1px solid var(--edge2); border-radius:8px; padding:10px 12px;
+               color:var(--ink); font-size:14px; }
+  .ask input::placeholder { color:var(--faint); }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; }
+  .chip { border:1px solid var(--edge); background:var(--panel); border-radius:14px; padding:4px 11px;
+          font-size:11.5px; color:var(--dim); }
+  .chip:hover { border-color:var(--edge2); color:var(--ink); }
+
+  /* bottom control bar */
+  .dock { display:flex; align-items:center; gap:8px; padding:9px 14px; border-top:1px solid var(--edge);
+          background:linear-gradient(180deg,#0E1116,#121722); flex-wrap:wrap; }
+  .modeswitch { display:flex; background:#0A0D12; border:1px solid var(--edge2); border-radius:7px; overflow:hidden; flex:0 0 auto; }
+  .modeswitch button { padding:6px 13px; font-size:12.5px; color:var(--dim); }
+  .modeswitch button.on { background:var(--panel2); color:var(--white); font-weight:600; }
+  .ctl { display:flex; align-items:center; gap:5px; background:var(--panel); border:1px solid var(--edge);
+         border-radius:7px; padding:5px 9px; font-size:12.5px; flex:0 0 auto; white-space:nowrap; }
+  .ctl b { font-weight:600; }
+  .ctl button { color:var(--dim); font-size:15px; width:18px; }
+  .ctl button:hover { color:var(--white); }
+  .dock .spacer { flex:1 1 0; min-width:0; }
+  .seat { width:26px; height:26px; border-radius:5px; border:1px solid var(--edge2); font-size:11px; color:var(--dim); }
+  .seat.h1 { background:rgba(242,169,59,.2); color:var(--amber); border-color:rgba(242,169,59,.5); }
+  .seat.h2 { background:rgba(242,169,59,.4); color:#FFD9A0; border-color:var(--amber); }
+  .seat.h3 { background:var(--amber); color:#241704; border-color:var(--amber); }
+
+  /* scenario rail + notes */
+  .rail { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 0; align-items:center; }
+  .rail .lbl { font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); font-weight:600; margin-right:2px; }
+  .rail button { border:1px solid var(--edge2); border-radius:6px; padding:6px 12px; font-size:12.5px; color:var(--dim); background:var(--panel); }
+  .rail button:hover { color:var(--ink); border-color:var(--cyan); }
+
+  .notes { margin-top:26px; display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px; }
+  .note { background:var(--deck); border:1px solid var(--edge); border-radius:10px; padding:14px 16px; }
+  .note h4 { margin:0 0 7px; font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); font-weight:600; }
+  .note p { margin:0 0 8px; color:var(--dim); font-size:13.5px; }
+  .note p:last-child { margin:0; }
+  .note code { font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--cyan); }
+  footer { margin-top:22px; color:var(--faint); font-size:12px; border-top:1px solid var(--edge); padding-top:14px; }
+
+  .capgrid { display:grid; grid-template-columns:1fr; gap:4px; max-height:190px; overflow-y:auto; }
+  .cap { display:flex; align-items:center; gap:7px; font-size:12px; padding:3px 0; border-bottom:1px solid rgba(35,43,54,.6); }
+  .cap .st { font-size:10px; font-weight:700; padding:1px 5px; border-radius:2px; }
+  .cap .st.y { background:rgba(79,217,138,.14); color:var(--green); }
+  .cap .st.n { background:rgba(226,87,76,.14); color:var(--red); }
+  .cap .nm { font-family:"JetBrains Mono",monospace; font-size:11.5px; }
+  .cap .rs { color:var(--faint); font-size:11px; margin-left:auto; text-align:right; }
+
+  @media (max-width:860px) {
+    .main { grid-template-columns:1fr; }
+    .left { border-right:0; border-bottom:1px solid var(--edge); }
+    .screen { min-height:0; }
+    .status { font-size:11.5px; gap:10px; }
+  }
+</style>
+
+<div class="page">
+  <div class="masthead">
+    <h1>The Intent Layer</h1>
+    <span class="sub">Concept prototype for a Model Y center display</span>
+    <span class="tag">Not a Tesla product</span>
+  </div>
+
+  <div class="screen">
+    <!-- status strip -->
+    <div class="status">
+      <span class="gear" id="gear"><b>P</b><b>R</b><b>N</b><b>D</b></span>
+      <span class="pill num" id="odo">24,817 mi</span>
+      <span class="spacer"></span>
+      <span class="pill" id="loc">Home &middot; 1244 Ozark Ave</span>
+      <span class="spacer"></span>
+      <span class="pill num" id="outside">91&deg;F</span>
+      <span class="pill num" id="clock">7:12 AM</span>
+      <span class="pill"><i class="dot"></i> LTE</span>
+    </div>
+
+    <div class="main">
+      <!-- left: vehicle -->
+      <div class="left">
+        <div class="carbox">
+          <svg viewBox="0 0 160 260" role="img" aria-label="Top-down view of the vehicle showing charge state">
+            <defs>
+              <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#2A323E"/><stop offset="1" stop-color="#171D26"/>
+              </linearGradient>
+              <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#3D4A5C"/><stop offset="1" stop-color="#232C39"/>
+              </linearGradient>
+            </defs>
+            <rect x="8" y="34" width="14" height="30" rx="4" fill="#39434F"/>
+            <rect x="138" y="34" width="14" height="30" rx="4" fill="#39434F"/>
+            <rect x="8" y="192" width="14" height="30" rx="4" fill="#39434F"/>
+            <rect x="138" y="192" width="14" height="30" rx="4" fill="#39434F"/>
+            <path d="M22 60 Q22 16 80 10 Q138 16 138 60 L138 206 Q138 248 80 252 Q22 248 22 206 Z"
+                  fill="url(#body)" stroke="#3B4552" stroke-width="1.5"/>
+            <path d="M34 78 Q80 66 126 78 L122 132 Q80 124 38 132 Z" fill="url(#glass)" opacity=".95"/>
+            <path d="M36 146 Q80 138 124 146 L120 200 Q80 194 40 200 Z" fill="url(#glass)" opacity=".8"/>
+            <rect x="52" y="20" width="56" height="7" rx="3" fill="#0E1319"/>
+            <circle cx="80" cy="150" r="3" fill="#4FD1E0" opacity=".9"/>
+            <g id="chargeport"><circle cx="134" cy="196" r="5" fill="#1A2029" stroke="#3B4552"/></g>
+            <g id="doorpins"></g>
+          </svg>
+        </div>
+
+        <div>
+          <div class="soc">
+            <span class="big num" id="socN">62</span><span class="unit">%</span>
+            <span class="rng num" id="rangeN">198 mi</span>
+          </div>
+          <div class="bar"><i id="socBar" style="width:62%"></i><span class="limit" id="limitMark" style="left:80%"></span></div>
+        </div>
+
+        <div class="readouts">
+          <div class="ro"><span>Cabin</span><b class="num" id="cabinN">78&deg;</b></div>
+          <div class="ro"><span>Set to</span><b class="num" id="setN">70&deg;</b></div>
+          <div class="ro" id="chgRo"><span>Charge</span><b class="num" id="chgN">Idle</b></div>
+          <div class="ro" id="psiRo"><span>Tires</span><b class="num" id="psiN">42 psi</b></div>
+        </div>
+
+        <div class="standing">
+          <h3><span>Standing intents</span><span class="num" id="intentCount">0</span></h3>
+          <div class="intent-list" id="intents"></div>
+        </div>
+
+        <div class="standing" id="workBox" hidden>
+          <h3><span>Job log &middot; today</span><span class="num" id="jobCount">0</span></h3>
+          <div class="intent-list" id="jobs"></div>
+        </div>
+      </div>
+
+      <!-- right: intent surface -->
+      <div class="right">
+        <h3><span>Intent surface</span><span id="brainNote" style="text-transform:none;letter-spacing:0;font-size:11px"></span></h3>
+        <div class="cards" id="cards"></div>
+        <div class="convo" id="convo"></div>
+        <div class="chips" id="chips"></div>
+        <div class="ask">
+          <input id="ask" type="text" autocomplete="off"
+                 placeholder="Say what you want, not which button to press&hellip;">
+          <button class="btn go" id="send">Ask</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- dock -->
+    <div class="dock">
+      <div class="modeswitch" id="modes">
+        <button data-mode="drive" class="on">Drive</button>
+        <button data-mode="work">Work</button>
+        <button data-mode="charge">Charge</button>
+      </div>
+      <div class="ctl"><span style="color:var(--faint)">Climate</span>
+        <button data-temp="-1">&minus;</button><b class="num" id="dockTemp">70&deg;</b><button data-temp="1">+</button>
+      </div>
+      <div class="ctl"><span style="color:var(--faint)">Seat</span>
+        <button class="seat" id="seatL" data-seat="0">L</button><button class="seat" id="seatR" data-seat="1">R</button>
+      </div>
+      <div class="ctl"><span style="color:var(--faint)">Limit</span>
+        <button data-limit="-5">&minus;</button><b class="num" id="dockLimit">80%</b><button data-limit="5">+</button>
+      </div>
+      <span class="spacer"></span>
+      <div class="ctl"><button id="lockBtn"><b id="lockTxt">Locked</b></button></div>
+      <div class="ctl"><button id="sentryBtn"><b id="sentryTxt">Sentry off</b></button></div>
+    </div>
+  </div>
+
+  <div class="rail">
+    <span class="lbl">Demo scenarios</span>
+    <button data-sc="cold">Cold morning, 6:40 AM</button>
+    <button data-sc="range">Low charge before a trip</button>
+    <button data-sc="job">Pull into a job site</button>
+    <button data-sc="tire">Slow tire leak</button>
+    <button data-sc="reset">Reset</button>
+  </div>
+
+  <div class="notes">
+    <div class="note">
+      <h4>1 &middot; Grounded capability</h4>
+      <p>Every action the assistant can take is a registered capability with a verified flag. It cannot describe an
+      action it has no entry for. Ask it to roll down a window and watch what happens.</p>
+      <div class="capgrid" id="capgrid"></div>
+    </div>
+    <div class="note">
+      <h4>2 &middot; Consent before actuation</h4>
+      <p>Comfort changes apply immediately. Anything that spends money, moves the car, or touches security becomes a
+      proposal card you confirm with one tap. The assistant never silently commits those.</p>
+      <p><code>DIRECT</code> climate, seats, volume, lock<br>
+         <code>PROPOSE</code> charging, navigation, sentry, schedules</p>
+    </div>
+    <div class="note">
+      <h4>3 &middot; Standing intents</h4>
+      <p>A command is one-shot. An intent persists and keeps being true. "Never let me leave for a job under 40 percent"
+      is a rule the car re-evaluates on every state change, not a thing you ask for each morning.</p>
+    </div>
+    <div class="note">
+      <h4>4 &middot; Model routing</h4>
+      <p>Three brains, one surface. On-device handles safety-critical and latency-bound work with no network.
+      Conversational and live-data queries go to the resident assistant. Long-horizon planning, documents and
+      structured reasoning route out to a reasoning model.</p>
+      <p><span class="brain edge">ON-DEVICE</span> <span class="brain grok">RESIDENT</span> <span class="brain claude">REASONING</span></p>
+    </div>
+  </div>
+
+  <footer>
+    Independent design concept. Not affiliated with, endorsed by, or produced by Tesla, Inc. Vehicle state is simulated;
+    the capability names mirror the shape of the public Tesla Fleet API so the prototype maps cleanly onto a real integration.
+  </footer>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ============================ vehicle state ============================ */
+const START = () => ({
+  soc: 62, rangeIdeal: 319, chargeLimit: 80,
+  charging: false, chargeKw: 0, pluggedIn: false,
+  cabin: 78, setTemp: 70, climateOn: false, seat: [0, 0],
+  locked: true, sentry: false, gear: 'P', speed: 0,
+  odo: 24817, psi: [42, 42, 41, 42], outside: 91,
+  minutes: 7 * 60 + 12,
+  place: 'Home · 1244 Ozark Ave',
+  plan: null,
+});
+let V = START();
+let MODE = 'drive';
+const INTENTS = [];
+const JOBS = [];
+let CARDS = [];
+let cardSeq = 0;
+
+/* ============================ capability registry ============================ */
+const CAPS = [
+  { id:'set_cabin_temp',   ok:true,  tier:'direct',  label:'Set cabin temperature',        api:'command/set_temps' },
+  { id:'set_seat_heat',    ok:true,  tier:'direct',  label:'Set seat heater level',        api:'command/remote_seat_heater_request' },
+  { id:'lock_doors',       ok:true,  tier:'direct',  label:'Lock or unlock doors',         api:'command/door_lock' },
+  { id:'start_climate',    ok:true,  tier:'direct',  label:'Start or stop climate',        api:'command/auto_conditioning_start' },
+  { id:'set_charge_limit', ok:true,  tier:'propose', label:'Change the charge limit',      api:'command/set_charge_limit' },
+  { id:'start_charging',   ok:true,  tier:'propose', label:'Start or stop charging',       api:'command/charge_start' },
+  { id:'navigate_to',      ok:true,  tier:'propose', label:'Send a destination to nav',    api:'command/navigation_request' },
+  { id:'set_sentry',       ok:true,  tier:'propose', label:'Arm or disarm Sentry Mode',    api:'command/set_sentry_mode' },
+  { id:'actuate_trunk',    ok:true,  tier:'propose', label:'Open the frunk or trunk',      api:'command/actuate_trunk' },
+  { id:'standing_intent',  ok:true,  tier:'direct',  label:'Create a standing intent',     api:'(intent layer)' },
+  { id:'log_job',          ok:true,  tier:'direct',  label:'Log a job stop',               api:'(intent layer)' },
+  { id:'control_windows',  ok:false, tier:null,      label:'Raise or lower windows',       why:'No window endpoint' },
+  { id:'move_seat',        ok:false, tier:null,      label:'Change seat position',         why:'No seat actuator' },
+  { id:'steer_or_brake',   ok:false, tier:null,      label:'Any driving input',            why:'Blocked by design' },
+  { id:'open_charge_door', ok:false, tier:null,      label:'Open the charge port door',    why:'Not wired in this build' },
+];
+const capById = (id) => CAPS.find(c => c.id === id) || null;
+
+/* ============================ helpers ============================ */
+const $ = (id) => document.getElementById(id);
+const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+const milesLeft = () => Math.round(V.rangeIdeal * (V.soc / 100));
+const fmtClock = (m) => {
+  m = ((m % 1440) + 1440) % 1440;
+  const h24 = Math.floor(m / 60), mm = String(m % 60).padStart(2, '0');
+  const h = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${h}:${mm} ${h24 < 12 ? 'AM' : 'PM'}`;
+};
+const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ============================ actuation ============================ */
+/** Apply a capability. Returns a short result string. Throws for unknown/unavailable. */
+function apply(capId, args = {}) {
+  const cap = capById(capId);
+  if (!cap) throw new Error(`No capability "${capId}" exists in this vehicle.`);
+  if (!cap.ok) throw new Error(`${cap.label} is not available on this vehicle: ${cap.why}.`);
+  switch (capId) {
+    case 'set_cabin_temp': {
+      V.setTemp = clamp(Math.round(Number(args.temp)), 59, 82); V.climateOn = true;
+      return `Cabin set to ${V.setTemp}°F, climate on.`;
+    }
+    case 'set_seat_heat': {
+      const i = String(args.seat || 'driver').toLowerCase().startsWith('p') ? 1 : 0;
+      V.seat[i] = clamp(Math.round(Number(args.level)), 0, 3);
+      return `${i ? 'Passenger' : 'Driver'} seat heater level ${V.seat[i]}.`;
+    }
+    case 'start_climate': {
+      V.climateOn = args.on !== false; return `Climate ${V.climateOn ? 'on' : 'off'}.`;
+    }
+    case 'lock_doors': {
+      V.locked = args.locked !== false; return `Doors ${V.locked ? 'locked' : 'unlocked'}.`;
+    }
+    case 'set_charge_limit': {
+      V.chargeLimit = clamp(Math.round(Number(args.percent) / 5) * 5, 50, 100);
+      return `Charge limit ${V.chargeLimit}%.`;
+    }
+    case 'start_charging': {
+      const on = args.on !== false;
+      if (on && !V.pluggedIn) { V.pluggedIn = true; }
+      V.charging = on; V.chargeKw = on ? 48 : 0;
+      return on ? `Charging started at ${V.chargeKw} kW.` : 'Charging stopped.';
+    }
+    case 'navigate_to': {
+      V.plan = { dest: String(args.destination || 'destination'), miles: Number(args.miles) || 24 };
+      return `Navigating to ${V.plan.dest}, about ${V.plan.miles} mi.`;
+    }
+    case 'set_sentry': {
+      V.sentry = args.on !== false; return `Sentry Mode ${V.sentry ? 'armed' : 'off'}.`;
+    }
+    case 'actuate_trunk': {
+      return `${String(args.which || 'rear').toLowerCase().startsWith('f') ? 'Frunk' : 'Trunk'} released.`;
+    }
+    case 'standing_intent': {
+      const text = String(args.text || '').trim();
+      if (!text) throw new Error('An intent needs a sentence.');
+      INTENTS.push({ id: 'i' + (++cardSeq), text, rule: String(args.rule || 'custom') });
+      return `Standing intent saved: "${text}"`;
+    }
+    case 'log_job': {
+      JOBS.push({
+        id: 'j' + (++cardSeq),
+        customer: String(args.customer || 'Customer'),
+        address: String(args.address || V.place),
+        service: String(args.service || 'Service call'),
+        at: fmtClock(V.minutes), odo: V.odo,
+      });
+      MODE = 'work'; syncModeButtons();
+      return `Job logged for ${JOBS[JOBS.length - 1].customer} at ${JOBS[JOBS.length - 1].at}.`;
+    }
+    default: throw new Error(`Capability "${capId}" has no handler.`);
+  }
+}
+
+/* ============================ cards ============================ */
+function addCard(c) {
+  if (CARDS.some(x => x.key && x.key === c.key)) return null;
+  const card = Object.assign({ id: 'c' + (++cardSeq), kind: 'anticipate' }, c);
+  CARDS.unshift(card);
+  CARDS = CARDS.slice(0, 5);
+  renderCards();
+  return card;
+}
+function dropCard(id) { CARDS = CARDS.filter(c => c.id !== id); renderCards(); }
+
+function renderCards() {
+  const host = $('cards');
+  host.innerHTML = '';
+  for (const c of CARDS) {
+    const el = document.createElement('div');
+    el.className = `card ${c.kind}`;
+    const kindLabel = { anticipate: 'Anticipated', propose: 'Needs your ok', done: 'Done', blocked: 'Unavailable' }[c.kind] || '';
+    el.innerHTML =
+      `<div class="ch"><b>${esc(c.title)}</b><span class="kind">${kindLabel}</span></div>` +
+      `<p>${esc(c.body)}</p>` +
+      (c.why ? `<div class="why">${esc(c.why)}</div>` : '');
+    if (c.kind === 'propose' || c.actions) {
+      const acts = document.createElement('div'); acts.className = 'acts';
+      const primary = document.createElement('button');
+      primary.className = 'btn go'; primary.textContent = c.confirmLabel || 'Do it';
+      primary.onclick = () => {
+        try {
+          const msg = apply(c.capId, c.args || {});
+          c.kind = 'done'; c.title = c.doneTitle || c.title; c.body = msg; c.why = ''; delete c.actions;
+          renderCards(); render();
+          setTimeout(() => dropCard(c.id), 5200);
+        } catch (e) {
+          c.kind = 'blocked'; c.body = e.message; renderCards();
+        }
+      };
+      const dismiss = document.createElement('button');
+      dismiss.className = 'btn ghost'; dismiss.textContent = 'Not now';
+      dismiss.onclick = () => dropCard(c.id);
+      acts.appendChild(primary); acts.appendChild(dismiss);
+      el.appendChild(acts);
+    } else if (c.kind === 'anticipate') {
+      const acts = document.createElement('div'); acts.className = 'acts';
+      const dismiss = document.createElement('button');
+      dismiss.className = 'btn ghost'; dismiss.textContent = 'Dismiss';
+      dismiss.onclick = () => dropCard(c.id);
+      acts.appendChild(dismiss);
+      el.appendChild(acts);
+    }
+    host.appendChild(el);
+  }
+}
+
+/** Raise a proposal card for a capability that requires consent. */
+function propose({ title, body, why, capId, args, confirmLabel, doneTitle, key }) {
+  return addCard({ kind: 'propose', title, body, why, capId, args, confirmLabel, doneTitle, key });
+}
+
+/* ============================ anticipation engine ============================ */
+const RULES = [
+  {
+    id: 'cold-precondition',
+    when: () => V.outside <= 42 && V.cabin <= 52 && !V.climateOn && V.minutes >= 5 * 60 && V.minutes <= 9 * 60,
+    fire: () => propose({
+      key: 'cold-precondition',
+      title: 'Cold start ahead',
+      body: `It is ${V.outside}°F outside and the cabin is at ${V.cabin}°F. Preconditioning now costs about 2% of charge and the glass is clear before you walk out.`,
+      why: 'Rule: outside below 42°F and a morning departure in your pattern.',
+      capId: 'set_cabin_temp', args: { temp: 70 },
+      confirmLabel: 'Warm it up', doneTitle: 'Preconditioning',
+    }),
+  },
+  {
+    id: 'range-vs-plan',
+    when: () => V.plan && milesLeft() < V.plan.miles * 1.35 && !V.charging,
+    fire: () => propose({
+      key: 'range-vs-plan',
+      title: 'Not enough margin for this trip',
+      body: `${V.plan.dest} is about ${V.plan.miles} mi round trip. You have ${milesLeft()} mi. That lands you home under 10% with no reserve for a detour.`,
+      why: `Rule: projected arrival buffer under 35%. Adding ~12 minutes at the Highway 62 Supercharger clears it.`,
+      capId: 'start_charging', args: { on: true },
+      confirmLabel: 'Start charging', doneTitle: 'Charging for the trip',
+    }),
+  },
+  {
+    id: 'intent-floor',
+    when: () => INTENTS.some(i => i.rule === 'charge_floor') && V.soc < 40 && !V.charging && MODE === 'work',
+    fire: () => propose({
+      key: 'intent-floor',
+      title: 'Standing intent would be broken',
+      body: `You are at ${V.soc}% and your standing intent says never leave for a job under 40%. Plugging in now gets you above the floor in about 15 minutes.`,
+      why: 'Rule: a standing intent you set is about to be violated.',
+      capId: 'start_charging', args: { on: true },
+      confirmLabel: 'Plug in', doneTitle: 'Back above the floor',
+    }),
+  },
+  {
+    id: 'tire',
+    when: () => Math.min(...V.psi) <= 34,
+    fire: () => addCard({
+      key: 'tire',
+      title: 'Left rear is losing pressure',
+      body: `Left rear reads ${Math.min(...V.psi)} psi against 42 on the others, and it has dropped 4 psi in two days. That is a leak, not temperature.`,
+      why: 'Rule: one tire diverging from the set by more than 6 psi with a downward trend.',
+    }),
+  },
+  {
+    id: 'sentry-away',
+    when: () => !V.sentry && V.place.startsWith('Job') && V.gear === 'P',
+    fire: () => propose({
+      key: 'sentry-away',
+      title: 'Parked away from home with Sentry off',
+      body: 'You are parked at a job site with tools in the back and Sentry Mode is off.',
+      why: 'Rule: parked at an unfamiliar location for the first time today.',
+      capId: 'set_sentry', args: { on: true },
+      confirmLabel: 'Arm Sentry', doneTitle: 'Sentry armed',
+    }),
+  },
+  {
+    id: 'arrived-job',
+    when: () => MODE === 'work' && V.place.startsWith('Job') && V.gear === 'P' && !JOBS.length,
+    fire: () => propose({
+      key: 'arrived-job',
+      title: 'Start the clock on this stop?',
+      body: 'You parked at 118 Cardinal Dr. Logging the stop captures arrival time, odometer and address for the invoice line.',
+      why: 'Rule: Work mode, vehicle in park at a saved customer address.',
+      capId: 'log_job',
+      args: { customer: 'Adkins property', address: '118 Cardinal Dr', service: 'Deck stain touch-up' },
+      confirmLabel: 'Log the stop', doneTitle: 'Stop logged',
+    }),
+  },
+];
+let ruleCooldown = {};
+function runRules() {
+  for (const r of RULES) {
+    if (ruleCooldown[r.id] && Date.now() - ruleCooldown[r.id] < 20000) continue;
+    let hit = false;
+    try { hit = r.when(); } catch (e) { hit = false; }
+    if (hit) { const made = r.fire(); if (made) ruleCooldown[r.id] = Date.now(); }
+  }
+}
+
+/* ============================ simulation tick ============================ */
+setInterval(() => {
+  V.minutes += 1;
+  if (V.charging) {
+    V.soc = Math.min(V.chargeLimit, +(V.soc + 0.45).toFixed(1));
+    if (V.soc >= V.chargeLimit) { V.charging = false; V.chargeKw = 0; }
+  } else if (V.gear === 'D') {
+    V.soc = Math.max(0, +(V.soc - 0.12).toFixed(1));
+    V.odo += 1;
+  }
+  if (V.climateOn) V.cabin += Math.sign(V.setTemp - V.cabin) * Math.min(1.4, Math.abs(V.setTemp - V.cabin));
+  else V.cabin += Math.sign(V.outside - V.cabin) * Math.min(0.4, Math.abs(V.outside - V.cabin));
+  V.cabin = +V.cabin.toFixed(0);
+  runRules();
+  render();
+}, 1000);
+
+/* ============================ render ============================ */
+function render() {
+  $('socN').textContent = Math.round(V.soc);
+  $('rangeN').textContent = `${milesLeft()} mi`;
+  $('socBar').style.width = `${V.soc}%`;
+  $('limitMark').style.left = `${V.chargeLimit}%`;
+  $('cabinN').innerHTML = `${Math.round(V.cabin)}&deg;`;
+  $('setN').innerHTML = `${V.setTemp}&deg;`;
+  $('chgN').textContent = V.charging ? `${V.chargeKw} kW` : (V.pluggedIn ? 'Plugged' : 'Idle');
+  $('chgRo').classList.toggle('warn', V.charging);
+  const lowPsi = Math.min(...V.psi);
+  $('psiN').textContent = `${lowPsi} psi`;
+  $('psiRo').classList.toggle('warn', lowPsi <= 34);
+  $('clock').textContent = fmtClock(V.minutes);
+  $('outside').innerHTML = `${V.outside}&deg;F`;
+  $('odo').textContent = `${V.odo.toLocaleString()} mi`;
+  $('loc').textContent = V.place;
+  $('dockTemp').innerHTML = `${V.setTemp}&deg;`;
+  $('dockLimit').textContent = `${V.chargeLimit}%`;
+  $('lockTxt').textContent = V.locked ? 'Locked' : 'Unlocked';
+  $('sentryTxt').textContent = V.sentry ? 'Sentry on' : 'Sentry off';
+  [0, 1].forEach(i => {
+    const b = $(i ? 'seatR' : 'seatL');
+    b.className = 'seat' + (V.seat[i] ? ` h${V.seat[i]}` : '');
+  });
+  [...$('gear').children].forEach(b => b.classList.toggle('on', b.textContent === V.gear));
+
+  $('intentCount').textContent = INTENTS.length;
+  const il = $('intents');
+  il.innerHTML = INTENTS.length ? '' : '<div class="empty">None yet. Try: "never let me leave for a job under 40 percent".</div>';
+  for (const it of INTENTS) {
+    const d = document.createElement('div'); d.className = 'intent';
+    d.innerHTML = `<span>${esc(it.text)}</span>`;
+    const x = document.createElement('button'); x.className = 'x'; x.textContent = '×';
+    x.title = 'Remove intent';
+    x.onclick = () => { const i = INTENTS.indexOf(it); if (i >= 0) INTENTS.splice(i, 1); render(); };
+    d.appendChild(x); il.appendChild(d);
+  }
+
+  $('workBox').hidden = MODE !== 'work';
+  $('jobCount').textContent = JOBS.length;
+  const jl = $('jobs');
+  jl.innerHTML = JOBS.length ? '' : '<div class="empty">No stops logged today.</div>';
+  for (const j of JOBS) {
+    const d = document.createElement('div'); d.className = 'intent';
+    d.style.borderLeftColor = 'var(--green)';
+    d.innerHTML = `<span><b>${esc(j.customer)}</b><br><span style="color:var(--faint)">${esc(j.service)} &middot; ${esc(j.at)} &middot; ${j.odo.toLocaleString()} mi</span></span>`;
+    jl.appendChild(d);
+  }
+}
+
+/* ============================ capability list UI ============================ */
+(function capUI() {
+  const host = $('capgrid');
+  for (const c of CAPS) {
+    const d = document.createElement('div'); d.className = 'cap';
+    d.innerHTML = `<span class="st ${c.ok ? 'y' : 'n'}">${c.ok ? 'YES' : 'NO'}</span>` +
+                  `<span class="nm">${esc(c.id)}</span>` +
+                  `<span class="rs">${esc(c.ok ? (c.tier === 'propose' ? 'needs ok' : 'direct') : c.why)}</span>`;
+    host.appendChild(d);
+  }
+})();
+
+/* ============================ conversation ============================ */
+function say(who, text, brain) {
+  const host = $('convo');
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-direction:column;' + (who === 'me' ? 'align-items:flex-end' : 'align-items:flex-start');
+  if (who !== 'me') {
+    const w = document.createElement('div'); w.className = 'who';
+    const badge = { edge: ['edge', 'ON-DEVICE'], grok: ['grok', 'RESIDENT'], claude: ['claude', 'REASONING'] }[brain || 'claude'];
+    w.innerHTML = `<span class="brain ${badge[0]}">${badge[1]}</span>`;
+    wrap.appendChild(w);
+  }
+  const m = document.createElement('div'); m.className = `msg ${who}`; m.textContent = text;
+  wrap.appendChild(m); host.appendChild(wrap); host.scrollTop = 1e9;
+  return m;
+}
+function toolLine(text) {
+  const host = $('convo');
+  const d = document.createElement('div'); d.className = 'msg tool'; d.textContent = text;
+  host.appendChild(d); host.scrollTop = 1e9;
+}
+
+/** Route a request to a brain. Pure function so the routing story is inspectable. */
+function route(text) {
+  const t = text.toLowerCase();
+  if (/\b(lock|unlock|seat|warm|cool|temp|degree|volume|sentry|frunk|trunk|window|defrost)\b/.test(t) && t.split(/\s+/).length <= 9)
+    return 'edge';
+  if (/\b(news|score|game|weather right now|traffic|trending|who won|stock|x\.com|post)\b/.test(t)) return 'grok';
+  return 'claude';
+}
+
+/* ============================ AI layer ============================ */
+let sampler = null, aiBusy = false;
+(async () => {
+  try { sampler = window.claude && window.claude.use ? await window.claude.use('sample') : null; }
+  catch (e) { sampler = null; }
+  $('brainNote').innerHTML = sampler
+    ? '<span style="color:var(--green)">live model connected</span>'
+    : '<span style="color:var(--faint)">offline rules engine</span>';
+})();
+
+const TOOLS = () => ([
+  {
+    name: 'get_vehicle_state',
+    description: 'Returns the live vehicle state: charge percent, miles of range, cabin and outside temperature, set temperature, climate on/off, seat heater levels, lock state, Sentry state, gear, odometer, tire pressures, current place, clock time, active navigation plan, current mode, standing intents and jobs logged today.',
+    execute: () => ({
+      soc: Math.round(V.soc), range_miles: milesLeft(), charge_limit: V.chargeLimit,
+      charging: V.charging, charge_kw: V.chargeKw, plugged_in: V.pluggedIn,
+      cabin_f: Math.round(V.cabin), set_temp_f: V.setTemp, climate_on: V.climateOn, outside_f: V.outside,
+      seat_heat: { driver: V.seat[0], passenger: V.seat[1] },
+      locked: V.locked, sentry: V.sentry, gear: V.gear, odometer: V.odo,
+      tire_psi: V.psi, place: V.place, clock: fmtClock(V.minutes),
+      nav_plan: V.plan, mode: MODE,
+      standing_intents: INTENTS.map(i => i.text), jobs_today: JOBS.length,
+    }),
+  },
+  {
+    name: 'list_capabilities',
+    description: 'Returns every action this vehicle can and cannot perform. Call this before claiming you can do something you have not done before. Each entry has an id, whether it is available, whether it applies directly or needs the driver to confirm, and a reason when it is unavailable.',
+    execute: () => CAPS.map(c => ({ id: c.id, label: c.label, available: c.ok, tier: c.tier, reason: c.why || null })),
+  },
+  {
+    name: 'apply_direct',
+    description: 'Immediately perform a low-impact capability whose tier is "direct": set_cabin_temp {temp}, set_seat_heat {seat:"driver"|"passenger", level:0-3}, start_climate {on}, lock_doors {locked}, standing_intent {text, rule}, log_job {customer, address, service}. Returns a confirmation string. Throws if the capability does not exist, is unavailable, or requires consent.',
+    inputSchema: { type: 'object', properties: { capability: { type: 'string' }, args: { type: 'object' } }, required: ['capability'] },
+    execute: ({ capability, args }) => {
+      const cap = capById(String(capability));
+      if (!cap) throw new Error(`No capability "${capability}". Call list_capabilities.`);
+      if (!cap.ok) throw new Error(`Unavailable: ${cap.why}`);
+      if (cap.tier !== 'direct') throw new Error(`"${capability}" needs driver consent. Use propose_action instead.`);
+      const out = apply(cap.id, args || {});
+      render();
+      return out;
+    },
+  },
+  {
+    name: 'propose_action',
+    description: 'Raise a confirmation card on screen for a capability whose tier is "propose": set_charge_limit {percent}, start_charging {on}, navigate_to {destination, miles}, set_sentry {on}, actuate_trunk {which}. The driver taps to confirm. Use this for anything that spends money, moves the car, or changes security. Returns confirmation that the card was raised; it does NOT mean the action happened.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        capability: { type: 'string' }, args: { type: 'object' },
+        title: { type: 'string', description: 'Four words or fewer' },
+        body: { type: 'string', description: 'One or two sentences with the concrete numbers' },
+        why: { type: 'string', description: 'The reason this is being raised' },
+      },
+      required: ['capability', 'title', 'body'],
+    },
+    execute: ({ capability, args, title, body, why }) => {
+      const cap = capById(String(capability));
+      if (!cap) throw new Error(`No capability "${capability}". Call list_capabilities.`);
+      if (!cap.ok) throw new Error(`Unavailable: ${cap.why}`);
+      propose({ title: String(title), body: String(body), why: why ? String(why) : '', capId: cap.id, args: args || {} });
+      return 'Card raised on screen. Waiting for the driver to confirm.';
+    },
+  },
+]);
+
+const BRIEF = `You are the Intent Layer in a Tesla Model Y. You are not a chatbot; you operate the car and you look after the drive.
+
+Hard rules:
+1. You may only do things that appear in list_capabilities. If the driver asks for anything else, say plainly that this vehicle cannot do it and give the reason from the registry. Never imply you did something you did not do, and never describe a capability you have not verified.
+2. Comfort actions (tier "direct") you perform yourself with apply_direct. Anything that spends money, moves the car, or changes security (tier "propose") must go through propose_action so the driver taps to confirm. Say that a card is waiting; do not claim it is done.
+3. Read the real state with get_vehicle_state before you reason about charge, temperature, time or location. Use the actual numbers in your answer.
+4. When the driver expresses a rule rather than a one-off request, save it with apply_direct capability "standing_intent" and rule "charge_floor" if it concerns a minimum charge, otherwise "custom".
+5. The owner runs a handyman business out of this car in Mountain Home, Arkansas. In Work mode, job stops, mileage and invoice lines matter.
+
+Style: two or three short sentences. Lead with what you did or what is waiting. Give the number that matters. No pleasantries, no lists, no markdown.`;
+
+const HISTORY = [];
+
+async function ask(text) {
+  if (!text.trim() || aiBusy) return;
+  aiBusy = true;
+  $('send').disabled = true;
+  say('me', text);
+  const brain = route(text);
+  const out = say('ai', 'Thinking…', brain);
+  try {
+    if (sampler) {
+      HISTORY.push({ role: 'user', content: text });
+      const turns = [{ role: 'user', content: BRIEF }, ...HISTORY.slice(-8)];
+      const { text: reply } = await sampler(turns, {
+        tools: TOOLS().map(t => ({
+          name: t.name, description: t.description, inputSchema: t.inputSchema,
+          execute: (inp) => {
+            try {
+              const r = t.execute(inp || {});
+              toolLine(`${t.name}(${JSON.stringify(inp || {}).slice(0, 70)}) ok`);
+              return r;
+            } catch (e) { toolLine(`${t.name} → ${e.message}`); throw e; }
+          },
+        })),
+        cache: false, modelTier: 'default',
+        onText: ({ text: t }) => { out.textContent = t; $('convo').scrollTop = 1e9; },
+      });
+      out.textContent = reply || '(no reply)';
+      HISTORY.push({ role: 'assistant', content: reply || '' });
+    } else {
+      out.textContent = offlineReply(text);
+    }
+  } catch (e) {
+    out.textContent = e && e.text ? e.text : `Model unavailable: ${(e && (e.message || e.code)) || e}. The offline rules engine still works.`;
+    if (!sampler) out.textContent = offlineReply(text);
+  } finally { aiBusy = false; $('send').disabled = false; render(); }
+}
+
+/** Deterministic fallback so the concept demos with no network or model. */
+function offlineReply(text) {
+  const t = text.toLowerCase();
+  const num = (re, d) => { const m = t.match(re); return m ? Number(m[1]) : d; };
+  if (/window/.test(t)) {
+    const c = capById('control_windows');
+    addCard({ kind: 'blocked', key: 'blk-window', title: 'Windows are not exposed', body: c.why + '. Nothing was changed.', why: 'Capability registry returned available: false.' });
+    return `This vehicle cannot do that. ${c.label} is not in the capability registry: ${c.why}. I did not change anything.`;
+  }
+  if (/seat.*(position|forward|back|recline)|move the seat/.test(t)) {
+    const c = capById('move_seat');
+    return `No. ${c.label} is unavailable: ${c.why}. I can set the seat heater instead.`;
+  }
+  // A rule, not a one-off. Checked before single-shot matches so "never ... under 40" lands here.
+  if (/\b(never|always|make sure|keep me|don'?t let me|whenever)\b/.test(t)) {
+    const rule = /\b\d{2}\s*(?:%|percent)\b/.test(t) ? 'charge_floor' : 'custom';
+    return apply('standing_intent', { text: text.trim(), rule }) + ' I re-check it on every state change.';
+  }
+  // Compound comfort: do everything the sentence asked for, not just the first match.
+  const acts = [];
+  if (/(make it|set|degree|temp|cabin|in here|warm it|cool it)/.test(t) && /\b(\d{2})\b/.test(t))
+    acts.push(apply('set_cabin_temp', { temp: num(/\b(\d{2})\b/, 70) }));
+  else if (/\b(warm|heat)\b/.test(t) && !/seat/.test(t)) acts.push(apply('set_cabin_temp', { temp: 72 }));
+  else if (/\b(cool|cold|chill)\b/.test(t) && !/seat/.test(t)) acts.push(apply('set_cabin_temp', { temp: 66 }));
+  if (/seat/.test(t) && /(heat|warm|toast)/.test(t))
+    acts.push(apply('set_seat_heat', { seat: /passenger/.test(t) ? 'passenger' : 'driver', level: 3 }));
+  if (/\b(lock|unlock)\b/.test(t)) acts.push(apply('lock_doors', { locked: !/unlock/.test(t) }));
+  if (acts.length) return acts.join(' ') + ` Cabin reads ${Math.round(V.cabin)}\u00b0F.`;
+  if (/sentry/.test(t)) {
+    propose({ title: 'Sentry Mode', body: `Arm Sentry Mode at ${V.place}?`, why: 'Security change: needs your confirmation.', capId: 'set_sentry', args: { on: !/off|disarm/.test(t) } });
+    return 'Card is on screen. Sentry changes need your tap; I do not arm or disarm security on my own.';
+  }
+  if (/charg/.test(t)) {
+    const pct = num(/(\d{2,3})\s*(?:%|percent)/, null);
+    if (pct) { propose({ title: 'Charge limit', body: `Set the limit to ${pct}%? You are at ${Math.round(V.soc)}% now.`, why: 'Charging changes cost money, so they need your tap.', capId: 'set_charge_limit', args: { percent: pct } }); return `Card is waiting. Limit would go to ${pct}%.`; }
+    propose({ title: 'Start charging', body: `You are at ${Math.round(V.soc)}% with ${milesLeft()} mi. Charge to the ${V.chargeLimit}% limit?`, why: 'Charging costs money, so it needs your tap.', capId: 'start_charging', args: { on: true } });
+    return `Card is waiting. I do not start charging without your confirmation.`;
+  }
+  if (/(job|invoice|customer|stop|clock)/.test(t)) return apply('log_job', { customer: 'Adkins property', address: '118 Cardinal Dr', service: 'Deck stain touch-up' });
+  if (/range|how far|enough/.test(t)) {
+    return `${Math.round(V.soc)}% and ${milesLeft()} mi of range at ${V.outside}°F.` +
+      (V.plan ? ` Your ${V.plan.dest} trip needs about ${V.plan.miles} mi, so the margin is ${milesLeft() - V.plan.miles} mi.` : ' No destination set.');
+  }
+  return `Offline rules engine. I can set climate and seats, lock, propose charging, navigation and Sentry, save standing intents and log job stops. Ask for a window and I will show you what a grounded refusal looks like.`;
+}
+
+/* ============================ input wiring ============================ */
+$('send').onclick = () => { const v = $('ask').value; $('ask').value = ''; ask(v); };
+$('ask').addEventListener('keydown', e => { if (e.key === 'Enter') { const v = $('ask').value; $('ask').value = ''; ask(v); } });
+
+const CHIPS = [
+  'Roll down the driver window',
+  'Make it 66 in here and heat my seat',
+  'Never let me leave for a job under 40 percent',
+  'Do I have enough range for the Adkins job and back?',
+  'Arm sentry, I am leaving tools in the car',
+  'Start the clock on this stop',
+];
+CHIPS.forEach(c => {
+  const b = document.createElement('button'); b.className = 'chip'; b.textContent = c;
+  b.onclick = () => ask(c);
+  $('chips').appendChild(b);
+});
+
+document.querySelectorAll('[data-temp]').forEach(b => b.onclick = () => { apply('set_cabin_temp', { temp: V.setTemp + Number(b.dataset.temp) }); render(); });
+document.querySelectorAll('[data-limit]').forEach(b => b.onclick = () => { apply('set_charge_limit', { percent: V.chargeLimit + Number(b.dataset.limit) }); render(); });
+document.querySelectorAll('[data-seat]').forEach(b => b.onclick = () => {
+  const i = Number(b.dataset.seat); apply('set_seat_heat', { seat: i ? 'passenger' : 'driver', level: (V.seat[i] + 1) % 4 }); render();
+});
+$('lockBtn').onclick = () => { apply('lock_doors', { locked: !V.locked }); render(); };
+$('sentryBtn').onclick = () => {
+  propose({ title: 'Sentry Mode', body: `${V.sentry ? 'Disarm' : 'Arm'} Sentry Mode at ${V.place}?`, why: 'Security changes always need a tap.', capId: 'set_sentry', args: { on: !V.sentry } });
+};
+function syncModeButtons() {
+  document.querySelectorAll('#modes button').forEach(b => b.classList.toggle('on', b.dataset.mode === MODE));
+}
+document.querySelectorAll('#modes button').forEach(b => b.onclick = () => { MODE = b.dataset.mode; syncModeButtons(); ruleCooldown = {}; render(); });
+
+/* ============================ scenarios ============================ */
+const SCENARIOS = {
+  cold() {
+    V.outside = 28; V.cabin = 31; V.climateOn = false; V.minutes = 6 * 60 + 40;
+    V.place = 'Home · 1244 Ozark Ave'; V.gear = 'P';
+    toast('Scenario: 28°F morning, cabin cold, departure window open.');
+  },
+  range() {
+    V.soc = 28; V.charging = false; V.plan = { dest: 'Adkins property, 118 Cardinal Dr', miles: 74 };
+    V.outside = 34; V.minutes = 8 * 60 + 5; MODE = 'work'; syncModeButtons();
+    toast('Scenario: 28% charge with a 74 mi round trip queued.');
+  },
+  job() {
+    MODE = 'work'; syncModeButtons();
+    V.place = 'Job · 118 Cardinal Dr'; V.gear = 'P'; V.sentry = false; V.minutes = 9 * 60 + 26;
+    toast('Scenario: parked at a customer address in Work mode.');
+  },
+  tire() { V.psi = [42, 42, 31, 42]; toast('Scenario: left rear down to 31 psi.'); },
+  reset() {
+    V = START(); MODE = 'drive'; syncModeButtons();
+    INTENTS.length = 0; JOBS.length = 0; CARDS = []; ruleCooldown = {};
+    $('convo').innerHTML = ''; HISTORY.length = 0; renderCards();
+    toast('Reset to a normal morning.');
+  },
+};
+function toast(t) {
+  const c = addCard({ kind: 'anticipate', title: 'Scenario loaded', body: t, why: 'Demo control, not a vehicle event.' });
+  if (c) setTimeout(() => dropCard(c.id), 7000);
+}
+document.querySelectorAll('[data-sc]').forEach(b => b.onclick = () => {
+  CARDS = []; ruleCooldown = {}; renderCards();
+  SCENARIOS[b.dataset.sc](); render(); runRules();
+});
+
+/* ============================ boot ============================ */
+render();
+runRules();
+say('ai', 'Intent Layer online. I read the real vehicle state, I only claim what the capability registry says I can do, and anything that costs money or touches security waits for your tap.', 'edge');
+})();
+</script>

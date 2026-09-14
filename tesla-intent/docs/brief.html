@@ -1,0 +1,327 @@
+<title>From Commands to Intent</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg:#F6F7F9; --card:#FFFFFF; --ink:#0F1318; --body:#2C333C; --dim:#69727E; --rule:#DCE0E6;
+    --sig:#1E5EFF; --warn:#B26A00; --good:#1B7A4B; --bad:#C0392B; --wash:#EDF1FA;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#0C0E12; --card:#13171D; --ink:#F0F2F5; --body:#C3C9D2; --dim:#8B94A1; --rule:#242A33;
+      --sig:#6C97FF; --warn:#E0A33C; --good:#4FC98A; --bad:#E8685C; --wash:#151B27;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#0C0E12; --card:#13171D; --ink:#F0F2F5; --body:#C3C9D2; --dim:#8B94A1; --rule:#242A33;
+    --sig:#6C97FF; --warn:#E0A33C; --good:#4FC98A; --bad:#E8685C; --wash:#151B27;
+  }
+  * { box-sizing:border-box; }
+  body {
+    background:var(--bg); color:var(--body);
+    font-family:"Newsreader", Georgia, serif; font-size:18px; line-height:1.6;
+    padding-inline:20px; padding-block:0 90px;
+  }
+  .wrap { max-width:760px; margin:0 auto; }
+  h1, h2, h3, .lbl, th, .btn, .num { font-family:"Archivo", system-ui, -apple-system, sans-serif; }
+  h1 { font-size:clamp(34px,6.5vw,58px); line-height:1.02; letter-spacing:-.015em; margin:0 0 14px;
+       color:var(--ink); font-weight:700; text-wrap:balance; }
+  h2 { font-size:15px; letter-spacing:.16em; text-transform:uppercase; color:var(--sig); font-weight:600;
+       margin:54px 0 14px; display:flex; align-items:baseline; gap:12px; }
+  h2::before { content:attr(data-n); font-family:"JetBrains Mono",monospace; font-size:13px; color:var(--dim);
+               letter-spacing:0; font-weight:400; }
+  h3 { font-family:"Archivo",sans-serif; font-size:19px; color:var(--ink); font-weight:600; margin:26px 0 6px; }
+  p { margin:0 0 15px; }
+  a { color:var(--sig); text-underline-offset:3px; }
+  a:focus-visible { outline:2px solid var(--sig); outline-offset:3px; }
+  .mono { font-family:"JetBrains Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums; font-size:.86em; }
+  .lbl { font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--dim); font-weight:600; }
+
+  header { padding-block:46px 6px; }
+  .kicker { display:flex; gap:14px; align-items:baseline; flex-wrap:wrap; margin-bottom:20px; }
+  .lede { font-size:21px; line-height:1.48; color:var(--ink); max-width:60ch; margin-bottom:24px; }
+  .byline { font-size:15px; color:var(--dim); border-top:1px solid var(--rule); padding-top:14px; }
+
+  .pull { border-left:3px solid var(--sig); padding:4px 0 4px 20px; margin:24px 0; }
+  .pull p { font-size:21px; line-height:1.4; color:var(--ink); margin:0; }
+
+  .card { background:var(--card); border:1px solid var(--rule); border-radius:10px; padding:18px 22px; margin:18px 0; }
+  .card h3 { margin-top:0; }
+  .card p:last-child { margin-bottom:0; }
+
+  .paths { display:grid; gap:12px; margin:18px 0; }
+  .path { background:var(--card); border:1px solid var(--rule); border-radius:10px; padding:15px 18px;
+          display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:start; }
+  .verdict { font-family:"Archivo",sans-serif; font-size:11px; font-weight:700; letter-spacing:.1em;
+             padding:3px 9px; border-radius:3px; white-space:nowrap; margin-top:3px; }
+  .verdict.y { background:rgba(27,122,75,.12); color:var(--good); }
+  .verdict.m { background:rgba(178,106,0,.13); color:var(--warn); }
+  .verdict.n { background:rgba(192,57,43,.11); color:var(--bad); }
+  .path b { font-family:"Archivo",sans-serif; display:block; color:var(--ink); font-size:16px; margin-bottom:3px; }
+  .path span { font-size:15.5px; }
+
+  .tablewrap { overflow-x:auto; margin:18px 0; }
+  table { border-collapse:collapse; width:100%; font-size:15.5px; }
+  th { text-align:left; font-size:11.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--dim);
+       font-weight:600; padding:0 14px 8px 0; border-bottom:2px solid var(--ink); }
+  td { padding:11px 14px 11px 0; border-bottom:1px solid var(--rule); vertical-align:top; }
+  td.k { font-family:"Archivo",sans-serif; font-weight:600; color:var(--ink); white-space:nowrap; }
+
+  ol.steps { list-style:none; padding:0; margin:14px 0; counter-reset:s; }
+  ol.steps li { display:grid; grid-template-columns:34px 1fr; gap:14px; padding:13px 0;
+                border-bottom:1px solid var(--rule); counter-increment:s; align-items:baseline; }
+  ol.steps li::before { content:counter(s,decimal-leading-zero); font-family:"JetBrains Mono",monospace;
+                        font-size:13px; color:var(--sig); font-weight:500; }
+  ol.steps b { font-family:"Archivo",sans-serif; display:block; color:var(--ink); font-size:16.5px; }
+
+  .objs { display:grid; gap:0; margin:14px 0; }
+  .obj { border-bottom:1px solid var(--rule); padding:15px 0; }
+  .obj b { font-family:"Archivo",sans-serif; display:block; color:var(--ink); font-size:16px; margin-bottom:5px; }
+  .obj b::before { content:"“"; color:var(--dim); }
+  .obj b::after { content:"”"; color:var(--dim); }
+  .obj p { margin:0; font-size:16px; }
+
+  figure { margin:26px 0 10px; }
+  figure svg { width:100%; height:auto; display:block; max-width:100%; }
+  figcaption { font-size:14.5px; color:var(--dim); margin-top:10px; }
+
+  .cta { background:var(--wash); border:1px solid var(--rule); border-radius:10px; padding:20px 24px; margin:26px 0; }
+  .cta a.btn { display:inline-block; background:var(--sig); color:#fff; text-decoration:none; font-weight:600;
+               font-size:15px; padding:10px 20px; border-radius:6px; letter-spacing:.02em; }
+  .cta a.btn:hover { filter:brightness(1.08); }
+
+  footer { margin-top:56px; padding-top:18px; border-top:1px solid var(--rule); color:var(--dim); font-size:14px; }
+  footer a { color:var(--dim); }
+  ul.plain { padding-left:20px; margin:0 0 15px; } ul.plain li { margin-bottom:7px; }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="kicker">
+    <span class="lbl">Design concept</span>
+    <span class="lbl mono" style="letter-spacing:0">v1 &middot; Sept 2026</span>
+  </div>
+  <h1>From commands<br>to intent</h1>
+  <p class="lede">The assistant in the car can now do about 116 things. That is not the problem any more.
+  The problem is that it does not know which 116, it acts without asking, and it forgets what you wanted the
+  moment you stop talking.</p>
+  <p class="byline">A proposal for the in-cabin experience team, with a working prototype.</p>
+</header>
+
+<h2 data-n="01">Where we actually are</h2>
+<p>The 2026 Summer Update gave the in-car assistant direct control of more than a hundred vehicle functions:
+glovebox, mirrors, Sentry, wipers, charge port, seat heaters, calls. That was the big unlock, and it shipped.
+So the obvious pitch, "let the assistant control the car," is already done.</p>
+<p>What did not ship is trust. Three gaps survive the update, and all three are design problems rather than
+capability problems.</p>
+
+<div class="card">
+  <h3>It claims things it cannot do</h3>
+  <p>Press coverage of early builds documented the assistant asserting it could adjust seats and climate when it
+  could not. A model that is wrong about its own body is worse than a model with a smaller body, because every
+  correct answer afterward is discounted. This is the single most expensive bug in the experience and it is not
+  fixable by adding more commands.</p>
+</div>
+<div class="card">
+  <h3>It is reactive</h3>
+  <p>116 commands still means the driver has to notice the problem, form the sentence, and say it. The car already
+  knows the charge, the route, the outside temperature, the tire that is down four psi and the appointment at
+  three. It should raise the issue before the driver does.</p>
+</div>
+<div class="card">
+  <h3>It has no memory of what you want</h3>
+  <p>"Precondition at 7:40" is a command. "Never let me leave for a job under 40 percent" is an intent. Commands
+  expire. Intents should persist and be re-evaluated on every state change. Nothing in the car holds one today.</p>
+</div>
+
+<div class="pull"><p>The assistant does not need more verbs. It needs to know its own limits, to ask before it
+spends, and to remember what you meant.</p></div>
+
+<h2 data-n="02">The proposal</h2>
+<p>A layer between natural language and the vehicle bus, built on three rules. The prototype implements all three
+and you can drive it in a browser.</p>
+
+<h3>Grounded capability</h3>
+<p>Every action is a registered entry: an id, an availability flag, a consent tier, the underlying endpoint, and a
+reason string when it is unavailable. The model is handed the registry as a tool and is forbidden to describe an
+action it has not looked up. Ask the prototype to roll down a window and it says the vehicle cannot, names the
+reason, and states plainly that it changed nothing. That answer is worth more than a hundred that might be true.</p>
+
+<h3>Consent proportional to consequence</h3>
+<p>Comfort applies instantly, because the cost of being wrong is one tap to undo. Anything that spends money, moves
+the car, or changes security becomes a card with the actual numbers on it and waits for a tap. The assistant is
+explicit that a card is waiting rather than claiming the thing is done. This is also the cleanest answer to the
+safety review: the model never silently commits a consequential action.</p>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Tier</th><th>Examples</th><th>Behaviour</th></tr></thead>
+  <tbody>
+    <tr><td class="k">Direct</td><td>Cabin temperature, seat heaters, volume, lock</td><td>Applies immediately, one tap to reverse</td></tr>
+    <tr><td class="k">Propose</td><td>Charging, charge limit, navigation, Sentry, schedules</td><td>Card with the numbers, waits for confirmation</td></tr>
+    <tr><td class="k">Never</td><td>Steering, braking, throttle, driver monitoring</td><td>Refused and explained, not silently ignored</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Standing intents</h3>
+<p>A sentence that expresses a rule is stored as a rule and re-checked whenever state changes. The prototype ships
+six anticipation rules driven off live state, and a standing intent the driver sets becomes a seventh. When the
+charge drops toward a floor the driver declared, the card that appears says which of their own intents is about to
+be broken. That framing matters: the car is not nagging, it is keeping a promise the driver made.</p>
+
+<h2 data-n="03">Where the models sit</h2>
+<p>One surface, three brains, chosen per request. This is the part that answers "how do we get another model in the
+car" without anyone having to rip anything out.</p>
+
+<figure>
+  <svg viewBox="0 0 720 250" role="img" aria-label="Architecture: voice and touch enter an intent router, which dispatches to on-device, resident and reasoning models, all of which act only through the capability registry and consent gate before reaching the vehicle">
+    <g font-family="Archivo, sans-serif" font-size="12.5">
+      <rect x="6" y="100" width="104" height="48" rx="6" fill="var(--card)" stroke="var(--rule)" stroke-width="1.5"/>
+      <text x="58" y="120" text-anchor="middle" fill="var(--ink)" font-weight="600">Voice / touch</text>
+      <text x="58" y="136" text-anchor="middle" fill="var(--dim)" font-size="11">driver input</text>
+
+      <rect x="140" y="98" width="96" height="52" rx="6" fill="var(--wash)" stroke="var(--sig)" stroke-width="1.5"/>
+      <text x="188" y="119" text-anchor="middle" fill="var(--ink)" font-weight="600">Intent</text>
+      <text x="188" y="135" text-anchor="middle" fill="var(--ink)" font-weight="600">router</text>
+
+      <rect x="272" y="22" width="150" height="44" rx="6" fill="var(--card)" stroke="var(--rule)" stroke-width="1.5"/>
+      <text x="347" y="40" text-anchor="middle" fill="var(--ink)" font-weight="600">On-device</text>
+      <text x="347" y="55" text-anchor="middle" fill="var(--dim)" font-size="11">no network, &lt;100 ms</text>
+
+      <rect x="272" y="102" width="150" height="44" rx="6" fill="var(--card)" stroke="var(--rule)" stroke-width="1.5"/>
+      <text x="347" y="120" text-anchor="middle" fill="var(--ink)" font-weight="600">Resident assistant</text>
+      <text x="347" y="135" text-anchor="middle" fill="var(--dim)" font-size="11">conversation, live data</text>
+
+      <rect x="272" y="182" width="150" height="44" rx="6" fill="var(--card)" stroke="var(--rule)" stroke-width="1.5"/>
+      <text x="347" y="200" text-anchor="middle" fill="var(--ink)" font-weight="600">Reasoning model</text>
+      <text x="347" y="215" text-anchor="middle" fill="var(--dim)" font-size="11">planning, documents</text>
+
+      <rect x="462" y="86" width="118" height="76" rx="6" fill="var(--wash)" stroke="var(--sig)" stroke-width="1.5"/>
+      <text x="521" y="110" text-anchor="middle" fill="var(--ink)" font-weight="600">Capability</text>
+      <text x="521" y="126" text-anchor="middle" fill="var(--ink)" font-weight="600">registry</text>
+      <text x="521" y="145" text-anchor="middle" fill="var(--dim)" font-size="11">+ consent gate</text>
+
+      <rect x="614" y="100" width="100" height="48" rx="6" fill="var(--card)" stroke="var(--rule)" stroke-width="1.5"/>
+      <text x="664" y="120" text-anchor="middle" fill="var(--ink)" font-weight="600">Vehicle</text>
+      <text x="664" y="136" text-anchor="middle" fill="var(--dim)" font-size="11">signed commands</text>
+
+      <g stroke="var(--dim)" stroke-width="1.4" fill="none">
+        <path d="M110 124 L138 124"/>
+        <path d="M236 118 C 254 118, 254 44, 270 44"/>
+        <path d="M236 124 L270 124"/>
+        <path d="M236 130 C 254 130, 254 204, 270 204"/>
+        <path d="M422 44 C 444 44, 444 112, 460 112"/>
+        <path d="M422 124 L460 124"/>
+        <path d="M422 204 C 444 204, 444 140, 460 140"/>
+        <path d="M580 124 L612 124"/>
+      </g>
+      <text x="360" y="246" text-anchor="middle" fill="var(--dim)" font-size="11.5" font-style="italic">
+        No model reaches the vehicle directly. Every path goes through the registry and the consent gate.</text>
+    </g>
+  </svg>
+  <figcaption>The routing is the enabling architecture, not the product. The product is the middle box on the
+  right: one place where every capability is declared, every consent tier is enforced, and every refusal is
+  explainable.</figcaption>
+</figure>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Request</th><th>Routes to</th><th>Because</th></tr></thead>
+  <tbody>
+    <tr><td class="k">"Lock it, heat my seat"</td><td>On-device</td><td>Short, safety-adjacent, must work in a dead zone</td></tr>
+    <tr><td class="k">"What's the score?"</td><td>Resident</td><td>Live data and conversation are its strength</td></tr>
+    <tr><td class="k">"Plan my Tuesday around charging"</td><td>Reasoning</td><td>Multi-constraint planning over calendar, route and rates</td></tr>
+    <tr><td class="k">"Write the invoice for this stop"</td><td>Reasoning</td><td>Structured document generation from vehicle data</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 data-n="04">Getting another model in the car, honestly</h2>
+<p>Worth being blunt with the team, because the wrong answer here sinks the pitch.</p>
+<div class="paths">
+  <div class="path"><span class="verdict n">NOT POSSIBLE</span>
+    <span><b>A native third-party app on the center screen</b>
+    There is no app SDK and no sideloading path. Any proposal that assumes one is dead on arrival.</span></div>
+  <div class="path"><span class="verdict y">SHIPS TODAY</span>
+    <span><b>A web app in the in-car browser</b>
+    The 2026 update added camera and microphone access to the browser on AMD Ryzen cars, which means a real
+    voice loop is possible in-cabin with no firmware change. This is how the prototype would be demoed in an
+    actual vehicle this week.</span></div>
+  <div class="path"><span class="verdict y">SHIPS TODAY</span>
+    <span><b>Fleet API with a virtual key</b>
+    The documented, signed-command path. Registry entries map one to one onto real endpoints such as
+    <span class="mono">command/set_temps</span>, <span class="mono">command/charge_start</span> and
+    <span class="mono">command/set_sentry_mode</span>. The prototype's capability ids were named to match, so
+    swapping the simulator for the real proxy is a single adapter.</span></div>
+  <div class="path"><span class="verdict m">THE ACTUAL ASK</span>
+    <span><b>A first-party pluggable reasoning backend</b>
+    Keep the resident assistant as the voice and personality. Add an interface where a second model can be
+    dispatched to for planning-class work. That is the decision only this team can make, and it is what the
+    prototype exists to argue for.</span></div>
+</div>
+
+<h2 data-n="05">Objections, answered before they are raised</h2>
+<div class="objs">
+  <div class="obj"><b>This is a distraction risk.</b>
+    <p>It reduces one. Today a driver who wants to change something either says a sentence and hopes, or reaches
+    for the screen. Proposal cards are glanceable, carry the number that matters, and are dismissible with the
+    same gesture as accepting. Anticipated cards appear at rest, not at speed.</p></div>
+  <div class="obj"><b>Round-tripping to a big model is too slow.</b>
+    <p>Which is why the router exists. Everything latency-bound stays on-device and never leaves the car. Only
+    planning-class work, where a driver already expects a pause, goes out.</p></div>
+  <div class="obj"><b>Why not just make the resident assistant better?</b>
+    <p>Two of the three rules cost nothing and should be done there regardless: ground it in a capability registry
+    and add consent tiers. The routing is separable and can come later. The proposal degrades gracefully.</p></div>
+  <div class="obj"><b>Liability.</b>
+    <p>The consent gate is the liability answer. Every consequential action has a recorded driver confirmation
+    against a card that stated the consequence in plain numbers. That audit trail does not exist today.</p></div>
+  <div class="obj"><b>Nobody asked for standing intents.</b>
+    <p>Nobody asks for a feature they have never seen. They do complain about arriving somewhere with less charge
+    than they wanted, which is the same thing stated as a symptom.</p></div>
+</div>
+
+<h2 data-n="06">What to build first</h2>
+<p>Six weeks, in this order, because each step is useful even if the next one never happens.</p>
+<ol class="steps">
+  <li><b>The capability registry</b>Declare every existing command in one schema with availability, tier, endpoint and
+  a reason string. Ship nothing else. This alone fixes the hallucinated-capability problem.</li>
+  <li><b>The consent gate</b>Classify those commands into direct, propose and never. Build the card. Instrument the
+  confirm rate.</li>
+  <li><b>Three anticipation rules</b>Cold-start preconditioning, range against the queued route, and a tire diverging
+  from the set. Measure whether drivers act on the card.</li>
+  <li><b>Standing intents</b>One sentence in, one persistent rule out, re-evaluated on state change. Start with charge
+  floors because they are unambiguous.</li>
+  <li><b>The router</b>Dispatch by intent class with the on-device path as the default and the fallback.</li>
+  <li><b>Work mode</b>Job stops, mileage and invoice lines from vehicle data. The prototype includes it because the
+  author runs a trade business out of a Model Y, and because contractors, realtors and home health are a large,
+  underserved, high-mileage segment that nobody is designing for.</li>
+</ol>
+
+<h3>How to tell whether it worked</h3>
+<ul class="plain">
+  <li><b>Confirm rate on proposal cards.</b> If drivers tap yes, the car understood the situation. Below 50 percent means the rules are wrong.</li>
+  <li><b>Corrections per session.</b> Grounded refusals should drive this toward zero.</li>
+  <li><b>Arrival state of charge versus the driver's declared floor.</b> The number standing intents exist to move.</li>
+  <li><b>Unprompted resolutions.</b> Problems solved by a card the driver never had to ask for.</li>
+</ul>
+
+<div class="cta">
+  <p style="margin-top:0"><b style="font-family:Archivo,sans-serif;color:var(--ink)">Drive the prototype before the meeting.</b>
+  Try "roll down the driver window" to see a grounded refusal, tap a scenario to watch the anticipation rules fire,
+  and set a standing intent, then load the low-charge scenario to watch the car defend it.</p>
+  <a class="btn" href="https://claude.ai/code/artifact/8394295c-b651-4005-ace7-dc21a4d4f505">Open the prototype</a>
+</div>
+
+<footer>
+  <p>Independent design concept. Not affiliated with, endorsed by, or produced by Tesla, Inc. Vehicle state in the
+  prototype is simulated; capability identifiers were chosen to mirror the public Fleet API so the mapping to a real
+  integration is direct.</p>
+  <p>Background on current assistant capabilities and limits:
+  <a href="https://driveteslacanada.ca/news/tesla-grok-voice-commands-vehicle-controls/">Drive Tesla Canada</a>,
+  <a href="https://www.motor1.com/news/806866/tesla-grok-summer-update-brings/">Motor1</a>,
+  <a href="https://www.yeslak.com/blogs/tesla-guide/complete-breakdown-of-tesla-grok-ai-features-limitations-as-of-january-2026">capability and limitation breakdown</a>.
+  Integration surfaces: <a href="https://developer.tesla.com/docs/fleet-api/endpoints/vehicle-commands">Fleet API vehicle commands</a>,
+  <a href="https://github.com/teslamotors/vehicle-command">vehicle-command signing</a>,
+  <a href="https://www.tesla.com/support/access-third-party-apps">third-party app access</a>.</p>
+</footer>
+</div>
