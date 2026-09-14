@@ -1,0 +1,19 @@
+schema_version = "1.0.0"
+
+id = "model_y"
+name = "Tesla Model Y 2023 Performance"
+version = "1.0.0"
+tagline = "Procedural Model Y with a working touchscreen and Grok assistant"
+maintainer = "Side projects"
+type = "add-on"
+
+license = ["SPDX:MIT"]
+blender_version_min = "4.2.0"
+
+tags = ["Add Mesh", "Object", "Render"]
+
+# Everything is generated from published specification with the standard
+# library only: no wheels to install, no network access required (the xAI call
+# is made only if the user supplies an API key).
+[permissions]
+network = "Optional: talk to the xAI API when a Grok key is configured"

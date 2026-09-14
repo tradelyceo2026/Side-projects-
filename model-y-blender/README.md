@@ -76,20 +76,51 @@ door open, no opening the boot at speed).
 
 ## Running it
 
-**As a Blender add-on** (Blender 3.6 – 5.x): zip the `model_y` folder and
-install it, or drop it in your `scripts/addons` directory and enable *Tesla
-Model Y 2023 Performance*. The sidebar (`N` → **Model Y**) has:
+### Route 1 — one file, no install (fastest)
 
-* **Vehicle** — paint, interior and studio toggles, Build
-* **Drive** — gear, accelerator, brake, steering, a live simulation loop, and a
-  "Launch to 60 mph" button that reports the measured time
+1. Open Blender, switch an area to the **Scripting** workspace.
+2. **Text → Open**, choose `blender/model_y_standalone.py`.
+3. Press **Run Script** (▶). The car appears, built from scratch, with the
+   touchscreen already painted and a camera and lights set up.
+
+Nothing is installed and nothing is left behind; it is a plain script. This is
+the whole car, but it builds one static frame — for the live simulation, the
+Grok console and the drive-baking, install the add-on.
+
+### Route 2 — install the add-on (the panel, the sim, Grok)
+
+```bash
+python3 tools/make_addon_zip.py              # -> dist/model_y_addon.zip
+python3 tools/make_addon_zip.py --extension  # -> dist/model_y_extension.zip (Blender 4.2+)
+```
+
+Both zips are also committed in [`dist/`](dist/), so you can grab one straight
+from the repository without running anything.
+
+*Blender 3.6 – 5.x (any version):* **Edit → Preferences → Add-ons →** the ▾
+menu top-right **→ Install from Disk…**, pick `model_y_addon.zip`, then tick
+**Tesla Model Y 2023 Performance** in the list.
+
+*Blender 4.2+ alternative:* drag `model_y_extension.zip` into a Blender window
+and confirm, or **Edit → Preferences → Get Extensions → Install from Disk…**.
+
+Then, in the 3D viewport, press **N** to open the sidebar and pick the
+**Model Y** tab:
+
+* **Vehicle** — paint, interior and studio toggles, then **Build Model Y**
+* **Drive** — gear, accelerator, brake, steering, **Drive** to run the
+  simulation live, **Launch to 60 mph** to watch (and time) a standing start
 * **Cabin & Body** — climate, locks, frunk, tailgate, lights, charging
-* **Grok** — ask it anything, or tap a suggestion; the reply lands on the
+* **Grok** — type a request or tap a suggestion; the reply lands on the car's
   touchscreen as well as in the panel
 * **Touchscreen** — which page to show, save the screen as a PNG, bake a drive
-  to keyframes
+  to keyframes so a render shows the screen changing
 
-**Headless:**
+To give Grok a real brain, put an xAI key in **Grok → Connection → xAI API Key**
+(or set `XAI_API_KEY` before launching Blender). Without one it runs the local
+intent engine and the badge on the screen reads GROK OFFLINE.
+
+### Route 3 — headless
 
 ```bash
 blender --background --python build.py -- --out model_y.blend
@@ -98,15 +129,14 @@ blender --background --python build.py -- --ask "open the frunk" --screen screen
 python3 build.py --self-test          # no Blender: spec sheet + simulated performance
 ```
 
-**One file, no install** — `blender/model_y_standalone.py` is the whole car in a
-single dependency-free script for pasting into Blender's text editor or handing
-to a remote `bpy` worker. It is a port of the package (same tables, same maths);
-the test-suite asserts the two build identical geometry.
+On macOS the executable is
+`/Applications/Blender.app/Contents/MacOS/Blender`; on Windows,
+`"C:\Program Files\Blender Foundation\Blender 4.5\blender.exe"`.
 
 **Tests** (plain Python, no Blender, no dependencies):
 
 ```bash
-python3 tests/run_tests.py      # 29 checks: geometry, dynamics, Grok, add-on
+python3 tests/run_tests.py      # 30 checks: geometry, dynamics, Grok, add-on
 python3 tools/preview.py        # orthographic PNG previews without Blender
 ```
 

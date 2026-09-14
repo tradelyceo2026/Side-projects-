@@ -402,6 +402,36 @@ def _wrap():
 # ---------------------------------------------------------------------------
 
 
+@check("the single-file Blender script builds the same car")
+def _standalone():
+    import importlib.util
+
+    import fake_bpy
+
+    bpy = fake_bpy.install()
+    spec = importlib.util.spec_from_file_location(
+        "model_y_standalone",
+        os.path.join(os.path.dirname(HERE), "blender", "model_y_standalone.py"))
+    sa = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(sa)
+
+    # same geometry as the package, part for part
+    package = {m.name: (len(m.verts), len(m.faces)) for m in assemble.build_all()}
+    single = {p.name: (len(p.verts), len(p.faces)) for p in sa.build_all_parts()}
+    if package != single:
+        differing = {k for k in set(package) | set(single)
+                     if package.get(k) != single.get(k)}
+        raise AssertionError(f"standalone has drifted from the package: {differing}")
+
+    objects = sa.build_scene(paint="Red Multi-Coat", studio=True)
+    for required in ("ModelY_Body", "Wheel_FL", "Center_Screen", "MY_Camera"):
+        assert required in objects, required
+    image = bpy.data.images.get("ModelY_Screen")
+    assert image is not None and any(v > 0.02 for v in image.pixels[:20000]), \
+        "the standalone script did not paint the touchscreen"
+    assert objects["Wheel_FL"].parent is objects["MY_Steer_FL"]
+
+
 class _FakeProps:
     """The handful of scene properties the operators read during the smoke test."""
 
