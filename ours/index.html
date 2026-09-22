@@ -1,0 +1,969 @@
+<title>Ours</title>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --paper:#F1F2ED; --surface:#FFFFFF; --sunk:#E7E9E2; --ink:#15171C; --muted:#5B616C; --line:#D9DCD3;
+  --a:#2447D6; --a-soft:#DDE3FB; --b:#D98E00; --b-soft:#FBEBCB;
+  --good:#1D7F52; --good-soft:#D7EFE2; --warn:#B8561A; --warn-soft:#F8E1D0; --bad:#B8323A;
+  --shadow:0 1px 2px rgba(21,23,28,.06),0 8px 24px -12px rgba(21,23,28,.18);
+  --display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --body:"Figtree","Segoe UI",system-ui,-apple-system,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --paper:#0F1115; --surface:#181B21; --sunk:#12151A; --ink:#ECEDE8; --muted:#9BA1AB; --line:#2A2E36;
+    --a:#7B93FF; --a-soft:#1E2748; --b:#F2B33D; --b-soft:#3A2C10;
+    --good:#4CC28A; --good-soft:#12301F; --warn:#F08A4B; --warn-soft:#3A2113; --bad:#FF6B72;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --paper:#0F1115; --surface:#181B21; --sunk:#12151A; --ink:#ECEDE8; --muted:#9BA1AB; --line:#2A2E36;
+  --a:#7B93FF; --a-soft:#1E2748; --b:#F2B33D; --b-soft:#3A2C10;
+  --good:#4CC28A; --good-soft:#12301F; --warn:#F08A4B; --warn-soft:#3A2113; --bad:#FF6B72;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--paper);color:var(--ink);font:15px/1.55 var(--body);padding-inline:16px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding-block:14px 96px}
+h1,h2,h3{font-family:var(--display);line-height:1.08;text-wrap:balance;margin:0;letter-spacing:-.015em}
+h1{font-size:clamp(30px,5.4vw,52px);font-weight:800}
+h2{font-size:clamp(22px,3vw,28px);font-weight:700}
+h3{font-size:18px;font-weight:700}
+p{margin:0}
+.muted{color:var(--muted)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.kicker{font-size:11.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.stack{display:flex;flex-direction:column;gap:12px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.between{justify-content:space-between}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))}
+.grid2{display:grid;gap:14px;align-items:start;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;min-width:0}
+.card.lift{box-shadow:var(--shadow)}
+.sunk{background:var(--sunk);border-radius:12px;padding:12px 14px}
+section.view{display:flex;flex-direction:column;gap:18px}
+.lede{max-width:64ch;color:var(--muted);font-size:15.5px}
+
+/* header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-block:6px 12px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:-.03em}
+.brand svg{width:40px;height:26px}
+.brand small{font-family:var(--body);font-weight:500;font-size:12.5px;color:var(--muted);letter-spacing:0}
+.seg{display:inline-flex;background:var(--sunk);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;color:var(--muted);font:600 13px var(--body);padding:6px 12px;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding-block:8px;margin-bottom:18px;border-bottom:1px solid var(--line)}
+.tabs::-webkit-scrollbar{display:none}
+.tabs a{flex:none;text-decoration:none;color:var(--muted);font-weight:600;font-size:14px;padding:8px 12px;border-radius:10px;white-space:nowrap}
+.tabs a:hover{color:var(--ink);background:var(--sunk)}
+.tabs a[aria-current="page"]{color:var(--ink);background:var(--surface);box-shadow:inset 0 0 0 1px var(--line)}
+.tabs a .badge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;margin-left:6px;border-radius:9px;background:var(--warn);color:#fff;font-size:11px}
+
+/* partners */
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;flex:none}
+.dot.a{background:var(--a)} .dot.b{background:var(--b)}
+.dot.s{background:repeating-linear-gradient(135deg,var(--a) 0 3px,var(--b) 3px 6px)}
+.ta{color:var(--a)} .tb{color:var(--b)}
+.braid{background:repeating-linear-gradient(135deg,var(--a) 0 7px,var(--b) 7px 14px)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.chip.good{background:var(--good-soft);color:var(--good)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.a{background:var(--a-soft);color:var(--a)}
+.chip.b{background:var(--b-soft);color:var(--b)}
+
+/* controls */
+button{font-family:inherit}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid transparent;background:var(--ink);color:var(--paper);font:600 14px var(--body);padding:9px 15px;border-radius:10px;cursor:pointer;text-decoration:none}
+.btn:hover{filter:brightness(1.12)}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn.ghost:hover{background:var(--sunk);filter:none}
+.btn.small{padding:6px 11px;font-size:13px;border-radius:8px}
+.btn.a{background:var(--a);color:#fff} .btn.b{background:var(--b);color:#1b1300}
+.btn.danger{background:transparent;color:var(--bad);border-color:var(--line)}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.link{background:none;border:0;padding:0;color:var(--muted);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font:inherit;font-size:13px}
+:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:600;color:var(--muted);min-width:0}
+input[type=text],input[type=number],input[type=date],select,textarea{font:500 15px var(--body);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:9px 11px;width:100%;min-width:0}
+textarea{font:13px/1.4 var(--mono);min-height:110px;resize:vertical}
+input[type=range]{width:100%;accent-color:var(--ink)}
+.formgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));align-items:end}
+
+/* bars */
+.bar{height:10px;background:var(--sunk);border-radius:6px;overflow:hidden;position:relative}
+.bar>i{position:absolute;inset:0 auto 0 0;border-radius:6px;background:var(--ink)}
+.bar>i.over{background:var(--warn)}
+.bar .mark{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--bad);border-radius:1px}
+.split{display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px}
+.split>i{display:block;height:100%}
+.split>i.a{background:var(--a)} .split>i.b{background:var(--b)}
+
+/* home hero */
+.hero{display:grid;gap:18px;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);align-items:end}
+@media (max-width:760px){.hero{grid-template-columns:1fr}}
+.hero h1 em{font-style:normal;background:linear-gradient(transparent 62%,var(--b-soft) 62%)}
+.stat{font-family:var(--mono);font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+
+/* tx list */
+.tx{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.tx:first-child{border-top:0}
+.tx .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tx .s{font-size:12.5px;color:var(--muted)}
+.tx .amt{font-family:var(--mono);font-weight:600;text-align:right}
+.tx.private .t{color:var(--muted);font-style:italic}
+.ico{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font:700 13px var(--display);background:var(--sunk);color:var(--muted)}
+.ico.shared{background:repeating-linear-gradient(135deg,var(--a-soft) 0 5px,var(--b-soft) 5px 10px);color:var(--ink)}
+.ico.a{background:var(--a-soft);color:var(--a)} .ico.b{background:var(--b-soft);color:var(--b)}
+
+/* heads-up */
+.heads{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:14px;background:var(--warn-soft);color:var(--ink)}
+.heads b{color:var(--warn)}
+.heads .glyph{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--warn);color:#fff;font-weight:800;font-family:var(--display)}
+
+/* fairness */
+.modes{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr))}
+.mode{position:relative;display:flex;flex-direction:column;gap:6px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:14px 16px;cursor:pointer;color:var(--ink)}
+.mode:hover{border-color:var(--muted)}
+.mode[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.mode strong{font-family:var(--display);font-size:17px}
+.mode span{font-size:13px;color:var(--muted)}
+.mode .rec{align-self:flex-start;order:-1}
+.ledger{width:100%;border-collapse:collapse;font-size:14px}
+.ledger th,.ledger td{padding:10px 8px;border-top:1px solid var(--line);text-align:right;white-space:nowrap}
+.ledger th:first-child,.ledger td:first-child{text-align:left;white-space:normal}
+.ledger thead th{border-top:0;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ledger tr.total td{font-weight:700;border-top:2px solid var(--ink)}
+.ledger tr.hl td{background:var(--sunk)}
+.scroll{overflow-x:auto}
+.quote{font-family:var(--display);font-size:clamp(20px,2.6vw,26px);font-weight:700;line-height:1.2;text-wrap:balance}
+
+/* chamber */
+.bid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.seal{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:92px;border-radius:12px;border:1px dashed var(--line);font-size:13px;color:var(--muted);text-align:center;padding:10px}
+.seal.done{border-style:solid}
+.seal.done.a{background:var(--a-soft);border-color:transparent;color:var(--a)}
+.seal.done.b{background:var(--b-soft);border-color:transparent;color:var(--b)}
+.wax{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font:800 14px var(--display);color:#fff}
+.wax.a{background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--a) 70%,#fff),var(--a) 60%)}
+.wax.b{background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--b) 70%,#fff),var(--b) 60%);color:#1b1300}
+.cool{height:6px;border-radius:3px;background:var(--sunk);overflow:hidden}
+.cool i{display:block;height:100%;background:var(--muted)}
+.tickets{display:flex;gap:10px;flex-wrap:wrap}
+.ticket{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1.5px dashed currentColor;font-weight:600;font-size:13px}
+.ticket.used{opacity:.4;text-decoration:line-through}
+.reveal{display:grid;grid-template-columns:1fr 1fr;gap:12px;perspective:800px}
+.rcard{border-radius:14px;padding:18px;text-align:center;animation:flip .7s cubic-bezier(.2,.8,.2,1) both}
+.rcard.a{background:var(--a-soft);color:var(--a)} .rcard.b{background:var(--b-soft);color:var(--b);animation-delay:.18s}
+.rcard .big{font:800 56px/1 var(--display)}
+@keyframes flip{from{transform:rotateY(90deg);opacity:0}to{transform:none;opacity:1}}
+@keyframes pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.12)}100%{transform:none;opacity:1}}
+.pop{animation:pop .5s cubic-bezier(.2,.8,.2,1) both}
+
+/* dreams */
+.braidsvg{width:100%;height:44px;display:block}
+.dream h3{font-size:20px}
+
+/* storm */
+.runway{display:grid;grid-template-columns:minmax(0,180px) minmax(0,1fr) auto;gap:10px 14px;align-items:center}
+@media (max-width:560px){.runway{grid-template-columns:1fr auto}.runway .track{grid-column:1/-1;order:3}}
+.track{height:22px;background:var(--sunk);border-radius:6px;position:relative;overflow:hidden}
+.track i{position:absolute;inset:0 auto 0 0;border-radius:6px}
+.track .tick{position:absolute;top:0;bottom:0;width:1px;background:var(--line)}
+.toggle{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--surface)}
+.toggle input{margin-top:3px;accent-color:var(--ink)}
+
+/* money date */
+.steps{display:flex;gap:6px}
+.steps i{flex:1;height:4px;border-radius:2px;background:var(--sunk)}
+.steps i.on{background:var(--ink)}
+.timer{font:600 38px/1 var(--mono);font-variant-numeric:tabular-nums}
+.love{border-left:3px solid var(--line);padding:4px 0 4px 12px;font-size:14px}
+
+/* modal */
+.scrim{position:fixed;inset:0;z-index:40;background:rgba(10,12,16,.55);display:grid;place-items:center;padding:16px;backdrop-filter:blur(3px)}
+.sheet{background:var(--surface);color:var(--ink);border-radius:18px;width:min(560px,100%);max-height:calc(100% - 32px);overflow:auto;padding:22px;box-shadow:0 30px 80px -20px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:14px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:10px;font-weight:600;font-size:14px;z-index:50;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;background:var(--warn-soft);border-radius:10px;font-size:13.5px}
+.empty{padding:22px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 40 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="var(--a)" stroke-width="4"/><circle cx="27" cy="13" r="10" fill="none" stroke="var(--b)" stroke-width="4"/><path d="M20 5.5 A10 10 0 0 1 23 13" fill="none" stroke="var(--a)" stroke-width="4"/></svg>
+      <span>Ours <small id="brand-sub"></small></span>
+    </div>
+    <div class="row">
+      <span class="kicker">Viewing as</span>
+      <div class="seg" id="viewer" role="group" aria-label="Who is looking"></div>
+    </div>
+  </header>
+  <nav class="tabs" id="tabs" aria-label="Sections"></nav>
+  <main id="view"></main>
+</div>
+<div id="modal"></div>
+<div id="toast" hidden></div>
+
+<script>
+(() => {
+'use strict';
+const KEY = 'ours.v1';
+const DAY = 864e5;
+const $ = s => document.querySelector(s);
+const sum = (arr, f = x => x) => arr.reduce((t, x) => t + (+f(x) || 0), 0);
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const uid = () => Math.random().toString(36).slice(2, 9);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = (n, dec = 0) => (n < 0 ? '−' : '') + '$' + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits: dec, maximumFractionDigits: dec});
+const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const parseD = s => new Date(s + 'T00:00:00');
+const today = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+const monthName = d => d.toLocaleString('en-US', {month: 'long', year: 'numeric'});
+const shortDate = d => d.toLocaleString('en-US', {month: 'short', day: 'numeric'});
+const monYr = d => d.toLocaleString('en-US', {month: 'short', year: 'numeric'});
+const ord = n => { const s = ['th','st','nd','rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
+const addMonths = (d, m) => { const x = new Date(d); x.setMonth(x.getMonth() + m); return x; };
+const WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const TASKS = {Cooking: 22, Cleaning: 25, Laundry: 20, Errands: 20, 'Household admin': 32, 'Caregiving': 21};
+
+/* ---------- sample household ---------- */
+function sample() {
+  const t = today(), m = t.getMonth(), y = t.getFullYear(), max = t.getDate();
+  const on = day => ymd(new Date(y, m, Math.min(day, max)));
+  const ago = n => ymd(new Date(t.getTime() - n * DAY));
+  const tx = [
+    [1,'Groceries',142.18,'Costco run','shared','a'],
+    [2,'Transport',48,'Gas','shared','b'],
+    [3,'Dining',64.5,'Thai place on 5th','shared','a'],
+    [4,'Home',39.99,'Shower curtain + hooks','shared','b'],
+    [6,'Groceries',88.4,"Trader Joe's",'shared','b'],
+    [7,'Fun',42,'Movie night','shared','a'],
+    [9,'Dining',38,'Brunch','shared','b'],
+    [10,'Groceries',121.7,'Weekly shop','shared','a'],
+    [12,'Personal',64,'Vinyl record','a','a'],
+    [13,'Dining',91.2,"Dev's birthday dinner",'shared','a'],
+    [14,'Transport',52,'Gas','shared','a'],
+    [15,'Groceries',96.35,'Weekly shop','shared','b'],
+    [17,'Personal',38,'Pottery drop-in class','b','b'],
+    [18,'Fun',28,'Mini golf','shared','b'],
+    [19,'Dining',52.8,'Tacos + drinks','shared','a'],
+    [20,'Groceries',74.2,'Farmers market','shared','a'],
+    [21,'Home',22.5,'Light bulbs','shared','a'],
+  ].map(([d,cat,amount,note,bucket,paidBy]) => ({id: uid(), date: on(d), cat, amount, note, bucket, paidBy}));
+  const labor = [
+    ['b','Cooking',14],['b','Cleaning',8],['b','Household admin',6],['b','Caregiving',6],['b','Laundry',4],
+    ['a','Cooking',5],['a','Errands',6],['a','Cleaning',3],['a','Household admin',2],
+  ].map(([who,task,hours],i) => ({id: uid(), who, task, hours, date: on(2 + i * 2)}));
+  return {
+    v: 1, sample: true, viewer: 'both',
+    people: {a: {name: 'Sam', income: 5800, minimum: 350}, b: {name: 'Riley', income: 3400, minimum: 280}},
+    anniversary: ymd(new Date(y - 6, t.getMonth(), t.getDate() + 11)),
+    emergency: 14500,
+    fairness: {mode: 'breathing', custom: 60, labor: 50},
+    bills: [
+      {id: uid(), name: 'Rent', amount: 2100, essential: true},
+      {id: uid(), name: 'Utilities', amount: 180, essential: true},
+      {id: uid(), name: 'Internet', amount: 70, essential: true},
+      {id: uid(), name: 'Insurance', amount: 240, essential: true},
+      {id: uid(), name: 'Car payment', amount: 380, essential: true},
+      {id: uid(), name: 'Streaming', amount: 45, essential: false},
+    ],
+    budgets: [
+      {cat: 'Groceries', amount: 700, essential: true},
+      {cat: 'Dining', amount: 280, essential: false},
+      {cat: 'Home', amount: 120, essential: false},
+      {cat: 'Transport', amount: 200, essential: true},
+      {cat: 'Fun', amount: 180, essential: false},
+    ],
+    allowance: {a: 400, b: 400},
+    rates: {...TASKS},
+    tx, labor,
+    tripwires: [
+      {id: uid(), owner: 'b', cat: 'Dining', limit: 220, why: 'Eating out creeps up on us and I end up anxious about savings.'},
+      {id: uid(), owner: 'a', cat: 'Fun', limit: 150, why: 'I want fun money to feel planned, not random.'},
+    ],
+    chamber: [
+      {id: uid(), name: 'Espresso machine', price: 749, created: Date.now() - 3 * DAY, bids: {a: {score: 8, max: 800}, b: null}, outcome: null},
+      {id: uid(), name: 'Road bike', price: 1850, created: Date.now() - 20 * 36e5, bids: {a: null, b: null}, outcome: null},
+      {id: uid(), name: 'Standing desk', price: 420, created: Date.now() - 19 * DAY, bids: {a: {score: 4, max: 300}, b: {score: 3, max: 250}}, outcome: 'let-go'},
+    ],
+    tickets: {a: {q: quarter(), used: false}, b: {q: quarter(), used: false}},
+    letGo: 420,
+    dreams: [
+      {id: uid(), name: 'Lisbon, just the two of us', target: 6000, saved: 2350, ca: 250, cb: 150},
+      {id: uid(), name: 'House down payment', target: 60000, saved: 18400, ca: 600, cb: 300},
+      {id: uid(), name: 'A couch we both like', target: 2200, saved: 900, ca: 100, cb: 100},
+    ],
+    dates: {day: 0, history: [ago(2), ago(9), ago(16)], love: [
+      {date: ago(2), a: 'Riley handled the whole insurance call. Hated it, did it anyway.', b: 'Sam cooked three nights in a row when I was slammed.'},
+      {date: ago(9), a: 'The pottery bowl. It is on my desk.', b: 'Sam said no to the Costco TV without me having to.'},
+    ]},
+  };
+}
+function blank() {
+  const s = sample();
+  return {...s, sample: false, tx: [], labor: [], chamber: [], dreams: [], tripwires: [], letGo: 0,
+    dates: {day: 0, history: [], love: []}, people: {a: {name: 'Partner A', income: 4000, minimum: 0}, b: {name: 'Partner B', income: 4000, minimum: 0}},
+    emergency: 0, anniversary: ymd(today())};
+}
+function quarter(d = new Date()) { return d.getFullYear() + 'Q' + (Math.floor(d.getMonth() / 3) + 1); }
+
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY)); } catch (e) { S = null; }
+if (!S || S.v !== 1) S = sample();
+for (const k of ['a','b']) if (S.tickets[k].q !== quarter()) S.tickets[k] = {q: quarter(), used: false};
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+/* ---------- derived numbers ---------- */
+const P = k => esc(S.people[k].name);
+const other = k => k === 'a' ? 'b' : 'a';
+const monthTx = () => { const m = ymd(today()).slice(0, 7); return S.tx.filter(t => t.date.slice(0, 7) === m); };
+const sharedTx = () => monthTx().filter(t => t.bucket === 'shared');
+const fixedTotal = () => sum(S.bills, b => b.amount);
+const budgetTotal = () => sum(S.budgets, b => b.amount);
+const sharedPlan = () => fixedTotal() + budgetTotal();
+const spentIn = cat => sum(sharedTx().filter(t => t.cat === cat), t => t.amount);
+const laborValue = k => { const m = ymd(today()).slice(0, 7); return sum(S.labor.filter(l => l.who === k && l.date.slice(0, 7) === m), l => l.hours * (S.rates[l.task] ?? 20)); };
+const laborHours = k => { const m = ymd(today()).slice(0, 7); return sum(S.labor.filter(l => l.who === k && l.date.slice(0, 7) === m), l => l.hours); };
+
+function modeBase(mode, pot) {
+  const ia = S.people.a.income, ib = S.people.b.income;
+  if (mode === 'half') return pot / 2;
+  if (mode === 'proportional') return ia + ib ? pot * ia / (ia + ib) : pot / 2;
+  if (mode === 'breathing') return (pot + ia - ib) / 2;
+  return pot * S.fairness.custom / 100;
+}
+function fair(mode = S.fairness.mode, weight = S.fairness.labor) {
+  const pot = sharedPlan(), La = laborValue('a'), Lb = laborValue('b');
+  const base = clamp(modeBase(mode, pot), 0, pot);
+  const credit = (La - Lb) / 2 * weight / 100;
+  const ca = clamp(base - credit, 0, pot), cb = pot - ca;
+  return {pot, La, Lb, credit, base: {a: base, b: pot - base}, cash: {a: ca, b: cb},
+    keep: {a: S.people.a.income - ca, b: S.people.b.income - cb}, pct: {a: pot ? ca / pot : .5, b: pot ? cb / pot : .5}};
+}
+function settle() {
+  const f = fair(); let paidA = 0, paidB = 0;
+  for (const t of monthTx()) {
+    if (t.bucket === 'shared') { if (t.paidBy === 'a') paidA += t.amount; else paidB += t.amount; }
+    if (t.bucket === 'settle') { if (t.paidBy === 'a') { paidA += t.amount; paidB -= t.amount; } else { paidB += t.amount; paidA -= t.amount; } }
+  }
+  const total = sum(sharedTx(), t => t.amount);
+  const diff = paidA - total * f.pct.a;
+  if (Math.abs(diff) < 1) return {even: true, total};
+  return diff > 0 ? {from: 'b', to: 'a', amount: diff, total} : {from: 'a', to: 'b', amount: -diff, total};
+}
+const allowanceLeft = k => S.allowance[k] - sum(monthTx().filter(t => t.bucket === k), t => t.amount);
+function crossed() { return S.tripwires.filter(w => spentIn(w.cat) > w.limit).map(w => ({...w, spent: spentIn(w.cat)})); }
+function coolingLeft(c) { return Math.max(0, 48 * 36e5 - (Date.now() - c.created)); }
+const openChamber = () => S.chamber.filter(c => !c.outcome);
+
+function annivDate(n) { const a = parseD(S.anniversary); return new Date(a.getFullYear() + n, a.getMonth(), a.getDate()); }
+function annivN(d) { const a = parseD(S.anniversary); let n = d.getFullYear() - a.getFullYear(); if (d < new Date(d.getFullYear(), a.getMonth(), a.getDate())) n--; return n; }
+function nextAnniv() { const n = annivN(today()) + 1; return {n, date: annivDate(n), days: Math.round((annivDate(n) - today()) / DAY)}; }
+
+function weekIdx(d) { return Math.floor(Math.round((d.getTime() - new Date(2024, 0, 7).getTime()) / DAY) / 7); } // Sunday-anchored weeks, DST-safe
+function streak() {
+  const weeks = new Set(S.dates.history.map(s => weekIdx(parseD(s))));
+  let w = weekIdx(today()); if (!weeks.has(w)) w--;
+  let n = 0; while (weeks.has(w)) { n++; w--; }
+  return n;
+}
+function nextDate() {
+  const t = today(), done = S.dates.history.some(s => weekIdx(parseD(s)) === weekIdx(t));
+  let d = (S.dates.day - t.getDay() + 7) % 7;
+  if (d === 0 && done) d = 7;
+  return {days: d, date: new Date(t.getTime() + d * DAY), doneThisWeek: done};
+}
+
+/* ---------- shell ---------- */
+const TABS = [
+  ['home','Us'], ['fairness','Fairness dial'], ['chamber','Sealed bids'], ['date','Money date'],
+  ['dreams','Dreams'], ['work','Invisible work'], ['storm','Storm test'], ['settings','Settings'],
+];
+let tab = (location.hash || '').slice(1);
+if (!TABS.some(t => t[0] === tab)) tab = 'home';
+
+function renderShell() {
+  $('#brand-sub').textContent = S.sample ? '· example household' : '· ' + S.people.a.name + ' & ' + S.people.b.name;
+  const opts = [['a', S.people.a.name, 'a'], ['both', 'Both', 's'], ['b', S.people.b.name, 'b']];
+  $('#viewer').innerHTML = opts.map(([k, n, d]) => `<button data-act="viewer" data-k="${k}" aria-pressed="${S.viewer === k}"><span class="dot ${d}"></span>${esc(n)}</button>`).join('');
+  const waiting = openChamber().filter(c => !c.bids.a || !c.bids.b || !coolingLeft(c)).length;
+  const nd = nextDate();
+  $('#tabs').innerHTML = TABS.map(([k, n]) => {
+    let badge = '';
+    if (k === 'chamber' && waiting) badge = `<span class="badge">${waiting}</span>`;
+    if (k === 'date' && nd.days === 0) badge = `<span class="badge">today</span>`;
+    return `<a href="#${k}" data-tab="${k}" ${tab === k ? 'aria-current="page"' : ''}>${n}${badge}</a>`;
+  }).join('');
+}
+function render() {
+  renderShell();
+  const v = {home: vHome, fairness: vFair, chamber: vChamber, date: vDate, dreams: vDreams, work: vWork, storm: vStorm, settings: vSettings}[tab];
+  $('#view').innerHTML = `<section class="view">${v()}</section>`;
+  if (tab === 'fairness') fairOut();
+  save();
+}
+
+/* ---------- Home ---------- */
+function vHome() {
+  const t = today(), plan = sharedPlan(), budgetSpent = sum(sharedTx(), x => x.amount);
+  const daysLeft = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate() - t.getDate();
+  const elapsed = t.getDate() / new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
+  const pace = budgetTotal() * elapsed - budgetSpent;
+  const f = fair(), st = settle(), na = nextAnniv(), nd = nextDate(), sk = streak();
+  const hi = S.viewer === 'both' ? 'Hi, you two.' : `Hi, ${P(S.viewer)}.`;
+  const headline = pace >= 0
+    ? `You're <em>${money(pace)} under pace</em> with ${daysLeft} days left in ${t.toLocaleString('en-US', {month: 'long'})}.`
+    : `You're <em>${money(-pace)} ahead of pace</em> on spending, ${daysLeft} days to go. Worth a look together.`;
+  return `
+  <div class="hero">
+    <div class="stack">
+      <span class="kicker">${hi} ${na.days <= 60 ? `Your ${ord(na.n)} anniversary is in ${na.days} day${na.days === 1 ? '' : 's'}.` : ''}</span>
+      <h1>${headline}</h1>
+    </div>
+    <div class="card lift stack">
+      <div class="row between"><span class="kicker">Each month into the shared pot</span><button class="link" data-go="fairness">${modeLabel(S.fairness.mode)}</button></div>
+      <div class="split"><i class="a" style="flex:${f.cash.a}"></i><i class="b" style="flex:${f.cash.b}"></i></div>
+      <div class="row between">
+        <span><span class="dot a"></span> ${P('a')} <b class="num">${money(f.cash.a)}</b></span>
+        <span><span class="dot b"></span> ${P('b')} <b class="num">${money(f.cash.b)}</b></span>
+      </div>
+      <p class="muted" style="font-size:13px">After the pot, each of you keeps <b class="num">${money(f.keep.a)}</b> and <b class="num">${money(f.keep.b)}</b>.</p>
+    </div>
+  </div>
+  ${headsUps()}
+  <div class="grid">
+    <div class="card stack">
+      <span class="kicker">Settle up</span>
+      ${st.even ? `<div class="stat">Even</div><p class="muted">Shared spending matches your split.</p>`
+        : `<div class="stat"><span class="t${st.from}">${P(st.from)}</span> → <span class="t${st.to}">${P(st.to)}</span></div>
+           <p><b class="num">${money(st.amount, 2)}</b> <span class="muted">evens out ${money(st.total)} of shared spending at your ${Math.round(f.pct.a * 100)}/${Math.round(f.pct.b * 100)} split.</span></p>
+           <div><button class="btn small ghost" data-act="settle">Mark as paid</button></div>`}
+    </div>
+    <div class="card stack">
+      <span class="kicker">Next money date</span>
+      <div class="stat">${nd.days === 0 ? 'Today' : nd.days === 1 ? 'Tomorrow' : WEEKDAYS[nd.date.getDay()]}</div>
+      <p class="muted">${sk ? `${sk}-week streak. ` : ''}20 minutes, agenda written for you.</p>
+      <div><button class="btn small ${nd.days === 0 ? '' : 'ghost'}" data-act="startdate">Start it now</button></div>
+    </div>
+    <div class="card stack">
+      <span class="kicker">No-questions money</span>
+      ${['a','b'].map(k => { const left = allowanceLeft(k); return `
+        <div class="stack" style="gap:6px">
+          <div class="row between"><span><span class="dot ${k}"></span> ${P(k)}</span><b class="num">${money(left)} left</b></div>
+          <div class="bar"><i style="width:${clamp(left / (S.allowance[k] || 1), 0, 1) * 100}%;background:var(--${k})"></i></div>
+        </div>`; }).join('')}
+      <p class="muted" style="font-size:12.5px">Amounts only. What it's spent on stays private.</p>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card stack">
+      <div class="row between"><h3>Shared budget</h3><span class="num muted">${money(budgetSpent)} / ${money(budgetTotal())}</span></div>
+      ${S.budgets.map(b => { const s = spentIn(b.cat), lines = S.tripwires.filter(w => w.cat === b.cat);
+        const visibleLines = lines.filter(w => S.viewer === w.owner);
+        return `<div class="stack" style="gap:6px">
+          <div class="row between"><span>${esc(b.cat)} ${lines.length ? `<span class="chip" title="Someone set a comfort line here">comfort line</span>` : ''}</span><span class="num" style="${s > b.amount ? 'color:var(--warn)' : ''}">${money(s)} <span class="muted">of ${money(b.amount)}</span></span></div>
+          <div class="bar"><i class="${s > b.amount ? 'over' : ''}" style="width:${clamp(s / (b.amount || 1), 0, 1) * 100}%"></i>${visibleLines.map(w => `<span class="mark" style="left:${clamp(w.limit / (b.amount || 1), 0, 1) * 100}%" title="Your comfort line"></span>`).join('')}</div>
+        </div>`; }).join('')}
+      <p class="muted" style="font-size:12.5px">Plus ${money(fixedTotal())} in fixed bills. Pace line assumes even spending through the month.</p>
+    </div>
+    <div class="card stack">
+      <div class="row between"><h3>This month</h3><button class="btn small" data-act="addtx">Add spending</button></div>
+      <div>${txList()}</div>
+    </div>
+  </div>`;
+}
+function modeLabel(m) { return {half: '50/50', proportional: 'By paycheck', breathing: 'Equal breathing room', custom: 'Our own split'}[m]; }
+function txList() {
+  const list = monthTx().slice().sort((x, y) => y.date.localeCompare(x.date));
+  if (!list.length) return `<div class="empty">Nothing logged this month yet.</div>`;
+  return list.map(t => {
+    if (t.bucket === 'settle') return `<div class="tx"><div class="ico">⇄</div><div><div class="t">${P(t.paidBy)} paid ${P(other(t.paidBy))} back</div><div class="s">${shortDate(parseD(t.date))} · settle up</div></div><div class="amt">${money(t.amount, 2)}</div></div>`;
+    const priv = t.bucket !== 'shared' && S.viewer !== t.bucket;
+    const icon = t.bucket === 'shared' ? 'shared' : t.bucket;
+    return `<div class="tx ${priv ? 'private' : ''}">
+      <div class="ico ${icon}">${esc((priv ? '·' : t.cat[0]))}</div>
+      <div style="min-width:0"><div class="t">${priv ? `${P(t.bucket)}'s own money` : esc(t.note || t.cat)}</div>
+        <div class="s">${shortDate(parseD(t.date))} · ${t.bucket === 'shared' ? `${esc(t.cat)} · paid by ${P(t.paidBy)}` : priv ? 'private, no questions asked' : 'your no-questions money'}</div></div>
+      <div class="row" style="gap:6px;flex-wrap:nowrap"><span class="amt">${money(t.amount, 2)}</span>${priv ? '' : `<button class="link" data-act="deltx" data-id="${t.id}" aria-label="Delete">×</button>`}</div>
+    </div>`;
+  }).join('');
+}
+function headsUps() {
+  const x = crossed(); if (!x.length) return '';
+  return x.map(w => {
+    if (S.viewer === 'both') return `<div class="heads"><div class="glyph">!</div><div><b>${esc(w.cat)} is past a comfort line one of you set privately.</b> <span class="muted">Not over budget, just over what feels okay to someone. It's on the money date agenda, no blame attached.</span></div></div>`;
+    if (S.viewer === w.owner) return `<div class="heads"><div class="glyph">!</div><div><b>Your ${esc(w.cat)} line (${money(w.limit)}) was crossed: ${money(w.spent)} so far.</b> <span class="muted">${P(other(w.owner))} got a gentle heads-up, without your name on it. Bring it up kindly on the money date.</span></div></div>`;
+    return `<div class="heads"><div class="glyph">!</div><div><b>Heads-up: ${esc(w.cat)} (${money(w.spent)}) is past a comfort line ${P(w.owner)} set.</b> <span class="muted">You're within budget. This just means it's weighing on them a little. Maybe skip the next one, or talk about it Sunday.</span></div></div>`;
+  }).join('');
+}
+
+/* ---------- Fairness ---------- */
+function vFair() {
+  const m = S.fairness.mode;
+  const modes = [
+    ['half', '50/50', 'Same dollars in from each of you. Simple, and hard on whoever earns less.'],
+    ['proportional', 'By paycheck', 'Each pays the same percent of their income.'],
+    ['breathing', 'Equal breathing room', 'Split the pot so you both walk away with the same free money.'],
+    ['custom', 'Our own split', 'Pick the percentage yourselves.'],
+  ];
+  return `
+  <div class="stack"><span class="kicker">Fairness dial</span><h2>There isn't one fair split. There are four, and you get to choose.</h2>
+  <p class="lede">Most apps default to 50/50 and never say what it costs. Here you can see each philosophy side by side, then decide how much the unpaid work at home should count.</p></div>
+  <div class="modes">${modes.map(([k, n, d]) => `<button class="mode" data-act="mode" data-k="${k}" aria-pressed="${m === k}"><strong>${n}</strong><span>${d}</span>${k === 'breathing' ? '<span class="chip good rec">Our pick</span>' : ''}</button>`).join('')}</div>
+  <div class="grid2">
+    <div class="card stack">
+      <label class="f" for="f-custom" ${m === 'custom' ? '' : 'hidden'}>${P('a')}'s share of the pot: <b class="num" id="f-custom-v">${S.fairness.custom}%</b>
+        <input id="f-custom" type="range" min="0" max="100" value="${S.fairness.custom}" data-live="custom"></label>
+      <label class="f" for="f-labor">How much should invisible work count? <b class="num" id="f-labor-v">${S.fairness.labor}%</b>
+        <input id="f-labor" type="range" min="0" max="100" step="5" value="${S.fairness.labor}" data-live="labor"></label>
+      <p class="muted" style="font-size:13px">This month's logged home work: ${P('a')} ${laborHours('a')}h (${money(laborValue('a'))}), ${P('b')} ${laborHours('b')}h (${money(laborValue('b'))}), valued at what you'd pay someone to do it. At 100%, the gap is fully evened out in cash. <button class="link" data-go="work">Log work</button></p>
+      <div id="fair-main"></div>
+    </div>
+    <div class="card stack">
+      <h3>What each philosophy leaves you</h3>
+      <div class="scroll" id="fair-compare"></div>
+      <p class="quote" id="fair-quote"></p>
+    </div>
+  </div>`;
+}
+function fairOut() {
+  const f = fair(), rows = ['half','proportional','breathing'].map(k => [k, fair(k, 0)]);
+  const cell = (k, v) => `<td class="num">${money(v)}</td>`;
+  $('#fair-main').innerHTML = `<div class="scroll"><table class="ledger">
+    <thead><tr><th></th><th><span class="dot a"></span> ${P('a')}</th><th><span class="dot b"></span> ${P('b')}</th></tr></thead>
+    <tbody>
+      <tr><td>Take-home pay</td>${cell('a', S.people.a.income)}${cell('b', S.people.b.income)}</tr>
+      <tr><td>${modeLabel(S.fairness.mode)} share of ${money(f.pot)}</td>${cell('a', f.base.a)}${cell('b', f.base.b)}</tr>
+      <tr><td>Invisible work credit</td><td class="num">${f.credit ? (f.credit > 0 ? '−' : '+') + money(Math.abs(f.credit)) : '—'}</td><td class="num">${f.credit ? (f.credit > 0 ? '+' : '−') + money(Math.abs(f.credit)) : '—'}</td></tr>
+      <tr class="total"><td>Into the pot each month</td>${cell('a', f.cash.a)}${cell('b', f.cash.b)}</tr>
+      <tr><td>Free money left</td>${cell('a', f.keep.a)}${cell('b', f.keep.b)}</tr>
+    </tbody></table></div>`;
+  $('#fair-compare').innerHTML = `<table class="ledger"><thead><tr><th>Before work credit</th><th>${P('a')} keeps</th><th>${P('b')} keeps</th></tr></thead><tbody>
+    ${rows.map(([k, r]) => `<tr class="${k === S.fairness.mode ? 'hl' : ''}"><td>${modeLabel(k)}</td>${cell('a', r.keep.a)}${cell('b', r.keep.b)}</tr>`).join('')}
+  </tbody></table>`;
+  const h = rows[0][1], hi = h.keep.a >= h.keep.b ? 'a' : 'b', lo = other(hi);
+  const ratio = h.keep[lo] > 0 ? h.keep[hi] / h.keep[lo] : Infinity;
+  $('#fair-quote').innerHTML = ratio > 1.15
+    ? `At 50/50, ${P(hi)} walks away with <span class="t${hi}">${isFinite(ratio) ? ratio.toFixed(1) + '×' : 'far'}</span> the free money ${P(lo)} does. Same home, same life.`
+    : `Your incomes are close, so the philosophies barely differ. Pick the one that feels right.`;
+}
+
+/* ---------- Sealed bids ---------- */
+function vChamber() {
+  const open = openChamber(), past = S.chamber.filter(c => c.outcome);
+  return `
+  <div class="stack"><span class="kicker">Sealed bids</span><h2>Big purchases wait 48 hours, then you both vote in secret.</h2>
+  <p class="lede">Anything over your threshold goes in here. Each of you privately rates how much you want it and the most you'd pay. Nobody sees the other's bid until you reveal together, so nobody anchors, caves, or argues about the first number said out loud.</p></div>
+  <div class="row between">
+    <div class="tickets">${['a','b'].map(k => `<div class="ticket t${k} ${S.tickets[k].used ? 'used' : ''}" title="One veto-proof yes per quarter">★ ${P(k)}'s golden ticket · ${S.tickets[k].used ? 'used' : 'available'} this quarter</div>`).join('')}</div>
+    <button class="btn" data-act="addbid">Put something in</button>
+  </div>
+  ${open.length ? `<div class="grid2">${open.map(bidCard).join('')}</div>` : `<div class="empty">Nothing waiting. Put in the next thing one of you is eyeing.</div>`}
+  <div class="card stack">
+    <div class="row between"><h3>Decided</h3><span class="chip good">${money(S.letGo)} not spent by letting things go</span></div>
+    ${past.length ? past.slice().reverse().map(c => `<div class="tx"><div class="ico ${c.outcome === 'let-go' ? '' : 'shared'}">${c.outcome === 'let-go' ? '–' : '✓'}</div><div><div class="t">${esc(c.name)}</div><div class="s">${{'let-go': 'Let go', bought: 'Bought together', ticket: 'Golden ticket'}[c.outcome]}${c.bids.a && c.bids.b ? ` · wanted ${c.bids.a.score} and ${c.bids.b.score} out of 10` : ''}</div></div><div class="amt">${money(c.price)}</div></div>`).join('') : '<p class="muted">Nothing decided yet.</p>'}
+  </div>`;
+}
+function bidCard(c) {
+  const left = coolingLeft(c), both = c.bids.a && c.bids.b;
+  const hrs = Math.ceil(left / 36e5);
+  return `<div class="card stack">
+    <div class="row between"><h3>${esc(c.name)}</h3><span class="num" style="font-weight:600">${money(c.price)}</span></div>
+    <div class="stack" style="gap:6px">
+      <div class="row between"><span class="kicker">${left ? 'Cooling off' : 'Cooled off'}</span><span class="muted" style="font-size:12.5px">${left ? `${hrs} hour${hrs === 1 ? '' : 's'} left` : 'Ready when you both are'}</span></div>
+      <div class="cool"><i style="width:${(1 - left / (48 * 36e5)) * 100}%"></i></div>
+    </div>
+    <div class="bid">${['a','b'].map(k => c.bids[k]
+      ? `<div class="seal done ${k}"><div class="wax ${k}">${esc(S.people[k].name[0] || '?')}</div>${P(k)}'s bid is sealed</div>`
+      : `<button class="seal" data-act="bid" data-id="${c.id}" data-k="${k}" style="cursor:pointer;background:none;font:inherit"><b style="color:var(--ink)">${P(k)}</b>Tap to seal your bid</button>`).join('')}</div>
+    <div class="row">
+      <button class="btn ${both && !left ? '' : 'ghost'}" data-act="reveal" data-id="${c.id}" ${both && !left ? '' : 'disabled'}>Reveal together</button>
+      ${both && left ? `<button class="link" data-act="skipcool" data-id="${c.id}">We're sure. Skip the wait</button>` : ''}
+    </div>
+  </div>`;
+}
+function verdict(c) {
+  const a = c.bids.a, b = c.bids.b, avg = (a.score + b.score) / 2, gap = Math.abs(a.score - b.score), cap = Math.min(a.max, b.max);
+  if (avg >= 7 && gap <= 3 && c.price <= cap) return ['good', 'You both want it, at this price.', 'Buy it and enjoy it. No guilt, you decided this together.'];
+  if (avg >= 7 && c.price > cap) return ['warn', 'Yes to the thing. No to the price.', `The lower of your two limits is ${money(cap)}. Hunt for a deal under that, or a used one.`];
+  if (gap >= 4) return ['warn', 'You want this very differently.', `A ${Math.max(a.score, b.score)} and a ${Math.min(a.score, b.score)}. Talk about what it means to each of you on your money date. A golden ticket can settle it.`];
+  if (avg < 5) return ['', 'Let it go.', `Neither of you is that into it. ${money(c.price)} stays yours.`];
+  return ['', 'Lukewarm.', 'Give it 30 more days. If you still think about it, put it back in.'];
+}
+
+/* ---------- Money date ---------- */
+function vDate() {
+  const nd = nextDate(), sk = streak();
+  return `
+  <div class="stack"><span class="kicker">Money date</span><h2>Twenty minutes a week that stop money fights before they start.</h2>
+  <p class="lede">Couples who talk about money on a schedule fight about it less than couples who talk about it when something goes wrong. Ours writes the agenda from your real numbers: a win first, the hard part in the middle, a dream and an appreciation to close.</p></div>
+  <div class="grid">
+    <div class="card stack"><span class="kicker">Next date</span><div class="stat">${nd.days === 0 ? 'Today' : WEEKDAYS[nd.date.getDay()] + ', ' + shortDate(nd.date)}</div>
+      <label class="f" for="d-day">Our day <select id="d-day" data-set="dates.day" data-num>${WEEKDAYS.map((w, i) => `<option value="${i}" ${S.dates.day === i ? 'selected' : ''}>${w}s</option>`).join('')}</select></label>
+      <div><button class="btn" data-act="startdate">Start the date</button></div></div>
+    <div class="card stack"><span class="kicker">Streak</span><div class="stat">${sk} week${sk === 1 ? '' : 's'}</div><p class="muted">${sk >= 3 ? "You're building the habit that matters most." : 'Three weeks in a row is where it starts to feel normal.'}</p>
+      <div class="row" style="gap:4px">${Array.from({length: 8}, (_, i) => { const w = weekIdx(today()) - 7 + i, on = S.dates.history.some(s => weekIdx(parseD(s)) === w); return `<span title="week" style="width:22px;height:22px;border-radius:6px;background:${on ? 'var(--ink)' : 'var(--sunk)'}"></span>`; }).join('')}</div></div>
+  </div>
+  <div class="card stack"><h3>What you appreciated</h3>
+    ${S.dates.love.length ? S.dates.love.slice(0, 6).map(l => `<div class="stack" style="gap:6px"><span class="kicker">${shortDate(parseD(l.date))}</span>
+      ${l.a ? `<div class="love" style="border-color:var(--a)"><b class="ta">${P('a')}:</b> ${esc(l.a)}</div>` : ''}
+      ${l.b ? `<div class="love" style="border-color:var(--b)"><b class="tb">${P('b')}:</b> ${esc(l.b)}</div>` : ''}</div>`).join('') : '<p class="muted">Every date ends with one thing each of you appreciated. They collect here.</p>'}
+  </div>`;
+}
+function dateSteps() {
+  const f = fair(), st = settle(), x = crossed(), wins = [];
+  for (const b of S.budgets) { const s = spentIn(b.cat); if (s < b.amount * .6 && b.amount) wins.push(`${b.cat} is at ${money(s)} of ${money(b.amount)}.`); }
+  const d = S.dreams.slice().sort((p, q) => q.saved / q.target - p.saved / p.target)[0];
+  if (d) wins.push(`${d.name} is ${Math.round(d.saved / d.target * 100)}% funded.`);
+  if (S.letGo) wins.push(`You've let go of ${money(S.letGo)} in purchases you didn't really want.`);
+  const ready = openChamber().filter(c => c.bids.a && c.bids.b && !coolingLeft(c));
+  return [
+    {title: 'Start with a win', mins: 2, body: `<p class="muted">Read one out loud. It sets the tone.</p><ul>${(wins.length ? wins : ['You showed up for this. That counts.']).slice(0, 3).map(w => `<li>${esc(w)}</li>`).join('')}</ul>`},
+    {title: 'The numbers, fast', mins: 4, body: `<ul><li>Shared spending: <b class="num">${money(sum(sharedTx(), t => t.amount))}</b> of <b class="num">${money(budgetTotal())}</b> flexible budget.</li><li>${st.even ? 'Settle-up is even.' : `${P(st.from)} owes ${P(st.to)} <b class="num">${money(st.amount, 2)}</b>. Send it now.`}</li><li>Pot split: ${P('a')} ${Math.round(f.pct.a * 100)}%, ${P('b')} ${Math.round(f.pct.b * 100)}%. Still feel right?</li></ul>`},
+    {title: 'The tender part', mins: 5, body: x.length ? `<p class="muted">A comfort line was crossed. Whoever set it: say what it feels like, not what the other person did. Whoever spent: just listen first.</p><ul>${x.map(w => `<li><b>${esc(w.cat)}</b>: ${money(w.spent)} against a line of ${money(w.limit)}, set by ${P(w.owner)}.</li>`).join('')}</ul>` : `<p>No comfort lines crossed. Anything else either of you has been carrying around? Say it now while it's small.</p>`},
+    {title: 'Sealed bids', mins: 3, body: ready.length ? `<p>${ready.length} item${ready.length > 1 ? 's are' : ' is'} ready to reveal: ${ready.map(c => esc(c.name)).join(', ')}. Reveal after the date from the Sealed bids tab.</p>` : `<p class="muted">Nothing ready to reveal. Anything either of you has been eyeing? Put it in now so it can cool off.</p>`},
+    {title: 'One dream', mins: 3, body: d ? `<p><b>${esc(d.name)}</b>: ${money(d.saved)} of ${money(d.target)}. ${dreamEta(d).text}.</p><p class="muted">Could either of you add $25 a week to it? That's one lunch.</p>` : `<p>Name one thing you want to do together that costs money. Add it on the Dreams tab.</p>`},
+    {title: 'Close with appreciation', mins: 3, body: `<p class="muted">One thing each of you appreciated this week. Money or not.</p>
+      <label class="f" for="love-a"><span class="ta">${P('a')}</span><input id="love-a" type="text" placeholder="I appreciated…"></label>
+      <label class="f" for="love-b"><span class="tb">${P('b')}</span><input id="love-b" type="text" placeholder="I appreciated…"></label>`},
+  ];
+}
+let dateState = null, dateTimer = null;
+function openDate() {
+  dateState = {i: 0, steps: dateSteps(), start: Date.now()};
+  clearInterval(dateTimer);
+  dateTimer = setInterval(() => { const el = $('#date-clock'); if (el) el.textContent = clock(Date.now() - dateState.start); else clearInterval(dateTimer); }, 1000);
+  drawDate();
+}
+const clock = ms => { const s = Math.floor(ms / 1000); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
+function drawDate() {
+  const {i, steps} = dateState, s = steps[i], last = i === steps.length - 1;
+  const keep = {a: $('#love-a')?.value, b: $('#love-b')?.value};
+  modal(`<div class="row between"><span class="kicker">Money date · step ${i + 1} of ${steps.length} · about ${s.mins} min</span><span class="timer" id="date-clock" style="font-size:18px">${clock(Date.now() - dateState.start)}</span></div>
+    <div class="steps">${steps.map((_, j) => `<i class="${j <= i ? 'on' : ''}"></i>`).join('')}</div>
+    <h2>${s.title}</h2><div class="stack">${s.body}</div>
+    <div class="row between"><button class="btn ghost" data-act="dateprev" ${i ? '' : 'disabled'}>Back</button>
+    <button class="btn" data-act="${last ? 'datefinish' : 'datenext'}">${last ? 'Finish the date' : 'Next'}</button></div>`, () => clearInterval(dateTimer));
+  if (keep.a && $('#love-a')) $('#love-a').value = keep.a;
+  if (keep.b && $('#love-b')) $('#love-b').value = keep.b;
+}
+
+/* ---------- Dreams ---------- */
+function dreamEta(d) {
+  const rem = Math.max(0, d.target - d.saved), mo = d.ca + d.cb;
+  if (!rem) return {text: 'Fully funded. Go do it'};
+  if (!mo) return {text: 'Set a monthly amount to see when you get there'};
+  const months = Math.ceil(rem / mo), eta = addMonths(today(), months), n = annivN(eta);
+  const after = (eta - annivDate(n)) / DAY, before = (annivDate(n + 1) - eta) / DAY;
+  let when;
+  if (n < 1 && before > 45) when = `before your 1st anniversary`;
+  else if (before <= 45) when = `just before your ${ord(n + 1)} anniversary`;
+  else if (after <= 45) when = `right around your ${ord(n)} anniversary`;
+  else when = `between your ${ord(n)} and ${ord(n + 1)} anniversaries`;
+  let nudge = '';
+  const target = annivDate(n), monthsTo = (target - today()) / (30.44 * DAY);
+  if (n >= 1 && monthsTo >= 2 && after > 45) {
+    const need = rem / Math.floor(monthsTo) - mo;
+    if (need > 0) nudge = `Want it by your ${ord(n)} anniversary (${monYr(target)})? That's ${money(Math.ceil(need))} more a month between you.`;
+  }
+  return {text: `On track for ${monYr(eta)}, ${when}`, nudge, months};
+}
+function braid(d) {
+  const p = clamp(d.saved / (d.target || 1), 0, 1), W = 600, H = 44, id = 'c' + d.id;
+  const path = phase => { let s = ''; for (let x = 0; x <= W; x += 6) { const y = H / 2 + 12 * Math.sin(x / 34 + phase); s += (x ? 'L' : 'M') + x + ' ' + y.toFixed(1); } return s; };
+  return `<svg class="braidsvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="${Math.round(p * 100)}% funded">
+    <defs><clipPath id="${id}"><rect x="0" y="0" width="${p * W}" height="${H}"/></clipPath></defs>
+    <path d="${path(0)}" fill="none" stroke="var(--line)" stroke-width="5" stroke-linecap="round"/>
+    <path d="${path(Math.PI)}" fill="none" stroke="var(--line)" stroke-width="5" stroke-linecap="round"/>
+    <g clip-path="url(#${id})"><path d="${path(0)}" fill="none" stroke="var(--a)" stroke-width="6" stroke-linecap="round"/><path d="${path(Math.PI)}" fill="none" stroke="var(--b)" stroke-width="6" stroke-linecap="round"/></g>
+  </svg>`;
+}
+function vDreams() {
+  const na = nextAnniv();
+  return `
+  <div class="stack"><span class="kicker">Dreams</span><h2>Goals measured in your years together, not in months.</h2>
+  <p class="lede">"Fourteen months" is abstract. "Just before your 8th anniversary" is a promise. Each dream is two strands, one for each of you, braiding toward the finish.</p></div>
+  <div class="row between"><span class="muted">Together since ${parseD(S.anniversary).toLocaleString('en-US', {month: 'long', day: 'numeric', year: 'numeric'})} · ${ord(na.n)} anniversary in ${na.days} days</span><button class="btn" data-act="adddream">New dream</button></div>
+  ${S.dreams.length ? `<div class="grid2">${S.dreams.map(d => { const e = dreamEta(d); return `<div class="card stack dream">
+    <div class="row between"><h3>${esc(d.name)}</h3><span class="num muted">${Math.round(clamp(d.saved / (d.target || 1), 0, 1) * 100)}%</span></div>
+    ${braid(d)}
+    <div class="row between"><span class="num"><b>${money(d.saved)}</b> <span class="muted">of ${money(d.target)}</span></span>
+      <span class="muted" style="font-size:13px"><span class="dot a"></span> ${money(d.ca)}/mo · <span class="dot b"></span> ${money(d.cb)}/mo</span></div>
+    <p><b>${e.text}.</b></p>${e.nudge ? `<p class="muted" style="font-size:13.5px">${e.nudge}</p>` : ''}
+    <div class="row"><button class="btn small ghost" data-act="fund" data-id="${d.id}">Add money</button><button class="btn small ghost" data-act="editdream" data-id="${d.id}">Edit</button></div>
+  </div>`; }).join('')}</div>` : `<div class="empty">No dreams yet. What do you two want that money can make happen?</div>`}`;
+}
+
+/* ---------- Invisible work ---------- */
+function vWork() {
+  const f = fair(), La = laborValue('a'), Lb = laborValue('b');
+  const tot = {a: f.cash.a + La, b: f.cash.b + Lb}, all = tot.a + tot.b || 1;
+  const m = ymd(today()).slice(0, 7), list = S.labor.filter(l => l.date.slice(0, 7) === m).sort((x, y) => y.date.localeCompare(x.date));
+  return `
+  <div class="stack"><span class="kicker">Invisible work</span><h2>The cooking, the calls, the laundry. It's money too.</h2>
+  <p class="lede">Unpaid work at home is worth real dollars: it's what you'd pay someone else to do it. Log it and it shows up in what each of you actually puts into the household. It also feeds the fairness dial, if you choose.</p></div>
+  <div class="card lift stack">
+    <span class="kicker">What each of you really puts in this month</span>
+    <div class="split" style="height:22px"><i class="a" style="flex:${f.cash.a}"></i><i class="a" style="flex:${La};opacity:.45"></i><i class="b" style="flex:${Lb};opacity:.45"></i><i class="b" style="flex:${f.cash.b}"></i></div>
+    <div class="grid">${['a','b'].map(k => `<div class="stack" style="gap:4px"><span><span class="dot ${k}"></span> <b>${P(k)}</b> · <span class="num">${Math.round(tot[k] / all * 100)}%</span> of the household</span>
+      <span class="muted num" style="font-size:13px">${money(f.cash[k])} cash + ${money(k === 'a' ? La : Lb)} work (${laborHours(k)}h)</span></div>`).join('')}</div>
+    <p class="muted" style="font-size:13px">Solid is cash into the pot. Faded is work at home.</p>
+  </div>
+  <div class="grid2">
+    <div class="card stack"><h3>Log some work</h3>
+      <div class="formgrid">
+        <label class="f" for="w-who">Who <select id="w-who">${['a','b'].map(k => `<option value="${k}" ${S.viewer === k ? 'selected' : ''}>${P(k)}</option>`).join('')}</select></label>
+        <label class="f" for="w-task">What <select id="w-task">${Object.keys(S.rates).map(t => `<option>${esc(t)}</option>`).join('')}</select></label>
+        <label class="f" for="w-hours">Hours <input id="w-hours" type="number" min="0.25" step="0.25" value="1"></label>
+      </div>
+      <div><button class="btn" data-act="addwork">Log it</button></div>
+      <p class="muted" style="font-size:12.5px">Rates (per hour, what you'd pay someone): ${Object.entries(S.rates).map(([t, r]) => `${esc(t)} ${money(r)}`).join(' · ')}. Change them in Settings.</p>
+    </div>
+    <div class="card stack"><h3>This month</h3><div>${list.length ? list.map(l => `<div class="tx"><div class="ico ${l.who}">${esc(l.task[0])}</div><div><div class="t">${esc(l.task)}</div><div class="s">${P(l.who)} · ${shortDate(parseD(l.date))} · ${l.hours}h</div></div><div class="row" style="gap:6px;flex-wrap:nowrap"><span class="amt">${money(l.hours * (S.rates[l.task] ?? 20))}</span><button class="link" data-act="delwork" data-id="${l.id}" aria-label="Delete">×</button></div></div>`).join('') : '<div class="empty">Nothing logged this month.</div>'}</div></div>
+  </div>`;
+}
+
+/* ---------- Storm test ---------- */
+let storm = {streaming: true, groceries: true};
+function vStorm() {
+  const essBills = sum(S.bills.filter(b => b.essential || (!storm.streaming && !b.essential)), b => b.amount);
+  const essBudget = sum(S.budgets.filter(b => b.essential), b => b.cat === 'Groceries' && storm.groceries ? b.amount * .85 : b.amount);
+  const minimums = S.people.a.minimum + S.people.b.minimum;
+  const need = essBills + essBudget + minimums;
+  const sc = [
+    {label: `${P('a')}'s paycheck stops`, income: S.people.b.income, color: 'var(--b)'},
+    {label: `${P('b')}'s paycheck stops`, income: S.people.a.income, color: 'var(--a)'},
+    {label: 'Both paychecks stop', income: 0, color: 'var(--ink)'},
+  ].map(s => { const gap = need - s.income; return {...s, gap, months: gap <= 0 ? Infinity : S.emergency / gap}; });
+  const MAX = 24;
+  return `
+  <div class="stack"><span class="kicker">Storm test</span><h2>If one of you lost a paycheck tomorrow, how long would you be okay?</h2>
+  <p class="lede">Most budgeting apps model one person. Couples have a second paycheck to lean on, and a specific question worth answering before it's urgent. This runs it with bare-bones spending: essential bills, groceries, transport and each person's own must-pays.</p></div>
+  <div class="grid2">
+    <div class="card stack">
+      <label class="f" for="s-fund">Emergency fund <input id="s-fund" type="number" min="0" step="100" value="${S.emergency}" data-set="emergency" data-num></label>
+      <label class="toggle" for="s-stream"><input id="s-stream" type="checkbox" data-act="storm" data-k="streaming" ${storm.streaming ? 'checked' : ''}><span><b>Cancel non-essential bills</b><br><span class="muted" style="font-size:13px">${S.bills.filter(b => !b.essential).map(b => esc(b.name)).join(', ') || 'None marked'}</span></span></label>
+      <label class="toggle" for="s-groc"><input id="s-groc" type="checkbox" data-act="storm" data-k="groceries" ${storm.groceries ? 'checked' : ''}><span><b>Trim groceries 15%</b><br><span class="muted" style="font-size:13px">Store brands, meal planning, no delivery</span></span></label>
+      <div class="sunk"><span class="kicker">Bare-bones month</span><div class="stat">${money(need)}</div><span class="muted" style="font-size:13px">${money(essBills)} bills · ${money(essBudget)} groceries & transport · ${money(minimums)} personal must-pays</span></div>
+    </div>
+    <div class="card stack"><h3>Your runway</h3>
+      ${sc.map(s => `<div class="runway"><span style="font-weight:600">${s.label}</span>
+        <div class="track">${[6, 12, 18].map(m => `<span class="tick" style="left:${m / MAX * 100}%"></span>`).join('')}<i style="width:${clamp(s.months / MAX, 0, 1) * 100}%;background:${s.color}"></i></div>
+        <span class="num" style="font-weight:600;text-align:right">${isFinite(s.months) ? s.months.toFixed(1) + ' mo' : 'Covered'}</span></div>
+        <p class="muted" style="font-size:13px;margin-top:-4px">${isFinite(s.months) ? `Short ${money(s.gap)} a month. Savings last until about ${monYr(addMonths(today(), Math.floor(s.months)))}.` : `The other paycheck covers bare-bones with ${money(-s.gap)} a month to spare.`}</p>`).join('')}
+      <p class="muted" style="font-size:12.5px">Scale: 0 to 24 months, gridlines every 6. Common advice is 3 to 6 months of runway with both incomes gone.</p>
+    </div>
+  </div>`;
+}
+
+/* ---------- Settings ---------- */
+function vSettings() {
+  const own = S.viewer === 'both' ? null : S.viewer;
+  return `
+  <div class="stack"><span class="kicker">Settings</span><h2>Your household</h2>${S.sample ? `<p class="lede">You're looking at an example household. Change anything, or start blank below.</p>` : ''}</div>
+  <div class="grid2">
+    ${['a','b'].map(k => `<div class="card stack"><h3><span class="dot ${k}"></span> Partner ${k === 'a' ? 'one' : 'two'}</h3><div class="formgrid">
+      <label class="f" for="p-${k}-name">Name <input id="p-${k}-name" type="text" value="${P(k)}" data-set="people.${k}.name"></label>
+      <label class="f" for="p-${k}-inc">Monthly take-home <input id="p-${k}-inc" type="number" min="0" step="50" value="${S.people[k].income}" data-set="people.${k}.income" data-num></label>
+      <label class="f" for="p-${k}-min">Own must-pays / mo <input id="p-${k}-min" type="number" min="0" step="10" value="${S.people[k].minimum}" data-set="people.${k}.minimum" data-num></label>
+      <label class="f" for="p-${k}-allow">No-questions money / mo <input id="p-${k}-allow" type="number" min="0" step="10" value="${S.allowance[k]}" data-set="allowance.${k}" data-num></label>
+    </div></div>`).join('')}
+  </div>
+  <div class="card stack"><h3>Together</h3><div class="formgrid">
+    <label class="f" for="s-anniv">Together since <input id="s-anniv" type="date" value="${S.anniversary}" data-set="anniversary"></label>
+    <label class="f" for="s-emerg">Emergency fund <input id="s-emerg" type="number" min="0" step="100" value="${S.emergency}" data-set="emergency" data-num></label>
+  </div></div>
+  <div class="grid2">
+    <div class="card stack"><h3>Fixed shared bills</h3>
+      ${S.bills.map((b, i) => `<div class="formgrid" style="grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto auto">
+        <input id="bill-n-${b.id}" type="text" value="${esc(b.name)}" data-set="bills.${i}.name" aria-label="Bill name">
+        <input id="bill-a-${b.id}" type="number" min="0" value="${b.amount}" data-set="bills.${i}.amount" data-num aria-label="Amount">
+        <label class="row" style="gap:4px;font-size:12.5px" for="bill-e-${b.id}"><input id="bill-e-${b.id}" type="checkbox" data-set="bills.${i}.essential" data-bool ${b.essential ? 'checked' : ''}>essential</label>
+        <button class="link" data-act="delbill" data-i="${i}" aria-label="Remove">×</button></div>`).join('')}
+      <div><button class="btn small ghost" data-act="addbill">Add bill</button></div>
+    </div>
+    <div class="card stack"><h3>Flexible shared budget</h3>
+      ${S.budgets.map((b, i) => `<div class="formgrid" style="grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto">
+        <input id="bud-n-${i}" type="text" value="${esc(b.cat)}" data-set="budgets.${i}.cat" aria-label="Category">
+        <input id="bud-a-${i}" type="number" min="0" value="${b.amount}" data-set="budgets.${i}.amount" data-num aria-label="Monthly amount">
+        <label class="row" style="gap:4px;font-size:12.5px" for="bud-e-${i}"><input id="bud-e-${i}" type="checkbox" data-set="budgets.${i}.essential" data-bool ${b.essential ? 'checked' : ''}>essential</label></div>`).join('')}
+      <div><button class="btn small ghost" data-act="addbudget">Add category</button></div>
+    </div>
+  </div>
+  <div class="card stack"><h3>Comfort lines</h3>
+    <p class="lede">A private number for a category that stresses you out. If shared spending passes it, your partner gets a gentle heads-up, and it goes on the money date agenda. Your partner never sees the number, only that a line exists.</p>
+    ${own ? `${S.tripwires.filter(w => w.owner === own).map(w => `<div class="sunk row between"><span><b>${esc(w.cat)}</b> over <span class="num">${money(w.limit)}</span>${w.why ? ` <span class="muted">· ${esc(w.why)}</span>` : ''}</span><button class="link" data-act="delwire" data-id="${w.id}">Remove</button></div>`).join('')}
+      <div class="formgrid"><label class="f" for="tw-cat">Category <select id="tw-cat">${S.budgets.map(b => `<option>${esc(b.cat)}</option>`).join('')}</select></label>
+        <label class="f" for="tw-lim">My line per month <input id="tw-lim" type="number" min="0" step="10" value="200"></label>
+        <label class="f" for="tw-why">Why (optional) <input id="tw-why" type="text" placeholder="It makes me anxious when…"></label></div>
+      <div><button class="btn" data-act="addwire">Add my line</button></div>`
+    : `<div class="sunk">${S.tripwires.length} comfort line${S.tripwires.length === 1 ? '' : 's'} set. Switch "Viewing as" to one of you to see and edit your own.</div>`}
+  </div>
+  <div class="card stack"><h3>Invisible work rates</h3><div class="formgrid">
+    ${Object.keys(S.rates).map((t, i) => `<label class="f" for="rate-${i}">${esc(t)} $/h <input id="rate-${i}" type="number" min="0" value="${S.rates[t]}" data-rate="${esc(t)}"></label>`).join('')}
+  </div></div>
+  <div class="card stack"><h3>Your data</h3>
+    <p class="muted">Everything lives in this browser only. Copy a backup to move it to another device or keep it safe.</p>
+    <div class="row"><button class="btn ghost" data-act="copyback">Copy backup</button><button class="btn ghost" data-act="showrestore">Restore from backup</button><button class="btn danger" data-act="askreset" data-k="blank">Start blank</button><button class="btn danger" data-act="askreset" data-k="sample">Reload example</button></div>
+    <div id="data-slot"></div>
+  </div>`;
+}
+
+/* ---------- modal + toast ---------- */
+let onClose = null;
+function modal(html, cb) {
+  onClose = cb || null;
+  $('#modal').innerHTML = `<div class="scrim" data-act="closemodal"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
+  const first = $('#modal').querySelector('input,select,button:not([disabled])'); first && first.focus();
+}
+function closeModal() { $('#modal').innerHTML = ''; if (onClose) { const f = onClose; onClose = null; f(); } }
+let toastT;
+function toast(msg) { const t = $('#toast'); t.className = 'toast'; t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
+
+/* ---------- actions ---------- */
+function setPath(path, val) { const ks = path.split('.'); let o = S; for (let i = 0; i < ks.length - 1; i++) o = o[ks[i]]; o[ks[ks.length - 1]] = val; }
+const A = {
+  viewer: el => { S.viewer = el.dataset.k; render(); },
+  mode: el => { S.fairness.mode = el.dataset.k; render(); },
+  closemodal: (el, e) => { if (e.target === el) closeModal(); },
+  settle: () => { const st = settle(); if (st.even) return; S.tx.push({id: uid(), date: ymd(today()), bucket: 'settle', paidBy: st.from, amount: +st.amount.toFixed(2), cat: 'Settle', note: ''}); render(); toast(`Logged: ${S.people[st.from].name} paid ${money(st.amount, 2)}`); },
+  deltx: el => { S.tx = S.tx.filter(t => t.id !== el.dataset.id); render(); toast('Removed'); },
+  addtx: () => {
+    const who = S.viewer === 'both' ? 'a' : S.viewer;
+    modal(`<h2>Add spending</h2><div class="formgrid">
+      <label class="f" for="tx-amt">Amount <input id="tx-amt" type="number" min="0" step="0.01" placeholder="0.00"></label>
+      <label class="f" for="tx-note">What was it <input id="tx-note" type="text" placeholder="Weekly shop"></label>
+      <label class="f" for="tx-bucket">Whose money <select id="tx-bucket"><option value="shared">Shared</option><option value="a">${P('a')}'s own</option><option value="b">${P('b')}'s own</option></select></label>
+      <label class="f" for="tx-cat">Category <select id="tx-cat">${S.budgets.map(b => `<option>${esc(b.cat)}</option>`).join('')}</select></label>
+      <label class="f" for="tx-paid">Paid by <select id="tx-paid"><option value="a" ${who === 'a' ? 'selected' : ''}>${P('a')}</option><option value="b" ${who === 'b' ? 'selected' : ''}>${P('b')}</option></select></label>
+    </div><p class="muted" style="font-size:13px">Own money is private: your partner sees the amount leave your no-questions balance, never what it was.</p>
+    <p id="tx-err" style="color:var(--bad)" hidden>Enter an amount above zero.</p>
+    <div class="row"><button class="btn" data-act="savetx">Add it</button><button class="btn ghost" data-act="cancel">Cancel</button></div>`);
+  },
+  savetx: () => {
+    const amount = +$('#tx-amt').value; if (!(amount > 0)) { $('#tx-err').hidden = false; return; }
+    const bucket = $('#tx-bucket').value;
+    S.tx.push({id: uid(), date: ymd(today()), amount, note: $('#tx-note').value.trim(), bucket, cat: bucket === 'shared' ? $('#tx-cat').value : 'Personal', paidBy: bucket === 'shared' ? $('#tx-paid').value : bucket});
+    closeModal(); render();
+    toast(bucket === 'shared' ? 'Added to shared spending' : 'Added privately');
+  },
+  cancel: () => closeModal(),
+  addbid: () => modal(`<h2>Put something in the chamber</h2><p class="muted">It cools off for 48 hours. Then each of you bids in private.</p>
+    <div class="formgrid"><label class="f" for="c-name">What is it <input id="c-name" type="text" placeholder="Espresso machine"></label>
+    <label class="f" for="c-price">Price <input id="c-price" type="number" min="0" step="1"></label></div>
+    <p id="c-err" style="color:var(--bad)" hidden>Give it a name and a price.</p>
+    <div class="row"><button class="btn" data-act="savebid">Start the cool-off</button><button class="btn ghost" data-act="cancel">Cancel</button></div>`),
+  savebid: () => { const name = $('#c-name').value.trim(), price = +$('#c-price').value; if (!name || !(price > 0)) { $('#c-err').hidden = false; return; }
+    S.chamber.push({id: uid(), name, price, created: Date.now(), bids: {a: null, b: null}, outcome: null}); closeModal(); render(); toast('In the chamber. 48 hours on the clock.'); },
+  bid: el => { const c = S.chamber.find(x => x.id === el.dataset.id), k = el.dataset.k, o = other(k);
+    modal(`<span class="kicker">Sealed bid · ${esc(c.name)} · ${money(c.price)}</span><h2>Hand the phone to ${P(k)}.</h2><p class="muted">${P(o)}, look away. Your bid is next.</p>
+      <div><button class="btn ${k}" data-act="bidopen" data-id="${c.id}" data-k="${k}">I'm ${P(k)}. Show me</button></div>`); },
+  bidopen: el => { const c = S.chamber.find(x => x.id === el.dataset.id), k = el.dataset.k;
+    modal(`<span class="kicker">${P(k)}'s sealed bid · ${esc(c.name)}</span><h2>How much do you want it?</h2>
+      <label class="f" for="b-score"><span class="row between"><span>1 = meh · 5 = nice to have · 10 = I think about it daily</span><b class="num" id="b-score-v" style="font-size:22px;color:var(--ink)">5</b></span>
+      <input id="b-score" type="range" min="1" max="10" value="5" data-live="score"></label>
+      <label class="f" for="b-max">The most I'd pay <input id="b-max" type="number" min="0" value="${c.price}"></label>
+      <div class="row"><button class="btn ${k}" data-act="seal" data-id="${c.id}" data-k="${k}">Seal it</button><button class="btn ghost" data-act="cancel">Cancel</button></div>`); },
+  seal: el => { const c = S.chamber.find(x => x.id === el.dataset.id), k = el.dataset.k;
+    c.bids[k] = {score: +$('#b-score').value, max: +$('#b-max').value || 0}; save();
+    modal(`<div class="stack" style="align-items:center;text-align:center;padding:10px"><div class="wax ${k} pop" style="width:72px;height:72px;font-size:28px">${esc(S.people[k].name[0] || '?')}</div><h2>Sealed.</h2><p class="muted">${P(other(k))} can't see it. Hand the phone back.</p><button class="btn" data-act="cancel">Done</button></div>`);
+    render(); },
+  skipcool: el => { const c = S.chamber.find(x => x.id === el.dataset.id); c.created = Date.now() - 48 * 36e5; render(); },
+  reveal: el => { const c = S.chamber.find(x => x.id === el.dataset.id), [tone, head, body] = verdict(c);
+    const hi = c.bids.a.score >= c.bids.b.score ? 'a' : 'b';
+    modal(`<span class="kicker">Reveal · ${esc(c.name)} · ${money(c.price)}</span>
+      <div class="reveal">${['a','b'].map(k => `<div class="rcard ${k}"><div class="kicker" style="color:inherit">${P(k)}</div><div class="big">${c.bids[k].score}</div><div style="font-size:13px">would pay up to <b class="num">${money(c.bids[k].max)}</b></div></div>`).join('')}</div>
+      <div class="sunk"><h3 style="color:var(--${tone || 'ink'})">${head}</h3><p style="margin-top:6px">${body}</p></div>
+      <div class="row"><button class="btn" data-act="decide" data-id="${c.id}" data-k="bought">We're buying it</button>
+      <button class="btn ghost" data-act="decide" data-id="${c.id}" data-k="let-go">Let it go</button>
+      ${!S.tickets[hi].used ? `<button class="btn ghost" data-act="decide" data-id="${c.id}" data-k="ticket" data-w="${hi}">★ ${P(hi)} uses a golden ticket</button>` : ''}</div>`); },
+  decide: el => { const c = S.chamber.find(x => x.id === el.dataset.id), k = el.dataset.k; c.outcome = k;
+    if (k === 'let-go') S.letGo += c.price;
+    if (k === 'ticket') S.tickets[el.dataset.w].used = true;
+    closeModal(); render(); toast(k === 'let-go' ? `${money(c.price)} stays in your pocket` : k === 'ticket' ? 'Golden ticket used. Enjoy it.' : 'Decided together'); },
+  startdate: () => openDate(),
+  datenext: () => { dateState.i++; drawDate(); },
+  dateprev: () => { dateState.i--; drawDate(); },
+  datefinish: () => { const a = $('#love-a').value.trim(), b = $('#love-b').value.trim(), d = ymd(today());
+    if (!S.dates.history.includes(d)) S.dates.history.push(d);
+    if (a || b) S.dates.love.unshift({date: d, a, b});
+    closeModal(); render(); toast(`Date done in ${clock(Date.now() - dateState.start)}. ${streak()}-week streak.`); },
+  adddream: () => dreamForm(null),
+  editdream: el => dreamForm(S.dreams.find(d => d.id === el.dataset.id)),
+  savedream: el => { const name = $('#dr-name').value.trim(), target = +$('#dr-target').value; if (!name || !(target > 0)) { $('#dr-err').hidden = false; return; }
+    const vals = {name, target, saved: +$('#dr-saved').value || 0, ca: +$('#dr-ca').value || 0, cb: +$('#dr-cb').value || 0};
+    const d = S.dreams.find(x => x.id === el.dataset.id); if (d) Object.assign(d, vals); else S.dreams.push({id: uid(), ...vals});
+    closeModal(); render(); toast('Saved'); },
+  deldream: el => { S.dreams = S.dreams.filter(d => d.id !== el.dataset.id); closeModal(); render(); toast('Dream removed'); },
+  fund: el => { const d = S.dreams.find(x => x.id === el.dataset.id);
+    modal(`<h2>Add to ${esc(d.name)}</h2><div class="formgrid"><label class="f" for="fu-amt">Amount <input id="fu-amt" type="number" min="0" step="1" value="50"></label></div>
+      <div class="row"><button class="btn" data-act="savefund" data-id="${d.id}">Add it</button><button class="btn ghost" data-act="cancel">Cancel</button></div>`); },
+  savefund: el => { const d = S.dreams.find(x => x.id === el.dataset.id), v = +$('#fu-amt').value || 0; d.saved += v; closeModal(); render(); toast(`${money(v)} braided in`); },
+  addwork: () => { const hours = +$('#w-hours').value; if (!(hours > 0)) { toast('Enter hours above zero'); return; }
+    S.labor.push({id: uid(), who: $('#w-who').value, task: $('#w-task').value, hours, date: ymd(today())}); render(); toast('Logged. It counts.'); },
+  delwork: el => { S.labor = S.labor.filter(l => l.id !== el.dataset.id); render(); },
+  storm: el => { storm[el.dataset.k] = el.checked; render(); },
+  addbill: () => { S.bills.push({id: uid(), name: 'New bill', amount: 0, essential: true}); render(); },
+  delbill: el => { S.bills.splice(+el.dataset.i, 1); render(); },
+  addbudget: () => { S.budgets.push({cat: 'New category', amount: 0, essential: false}); render(); },
+  addwire: () => { const limit = +$('#tw-lim').value; if (!(limit >= 0)) return;
+    S.tripwires.push({id: uid(), owner: S.viewer, cat: $('#tw-cat').value, limit, why: $('#tw-why').value.trim()}); render(); toast('Line set. Only you can see the number.'); },
+  delwire: el => { S.tripwires = S.tripwires.filter(w => w.id !== el.dataset.id); render(); },
+  copyback: () => { const txt = JSON.stringify(S);
+    const fallback = () => { $('#data-slot').innerHTML = `<label class="f" for="backup-out">Select all and copy<textarea id="backup-out" readonly>${esc(txt)}</textarea></label>`; $('#backup-out').select(); };
+    try { navigator.clipboard.writeText(txt).then(() => toast('Backup copied'), fallback); } catch (e) { fallback(); } },
+  showrestore: () => { $('#data-slot').innerHTML = `<label class="f" for="backup-in">Paste a backup<textarea id="backup-in"></textarea></label><p id="backup-err" style="color:var(--bad)" hidden>That doesn't look like an Ours backup. Paste the whole text you copied.</p><div><button class="btn" data-act="restore">Restore</button></div>`; },
+  restore: () => { try { const d = JSON.parse($('#backup-in').value); if (d.v !== 1 || !d.people) throw 0; S = d; render(); toast('Restored'); } catch (e) { $('#backup-err').hidden = false; } },
+  askreset: el => { const k = el.dataset.k; $('#data-slot').innerHTML = `<div class="confirm"><span>${k === 'blank' ? 'Erase everything and start blank?' : 'Replace everything with the example household?'} This can't be undone.</span><button class="btn small danger" data-act="doreset" data-k="${k}">Yes, ${k === 'blank' ? 'erase' : 'replace'}</button><button class="btn small ghost" data-act="noreset">Keep my data</button></div>`; },
+  noreset: () => { $('#data-slot').innerHTML = ''; },
+  doreset: el => { S = el.dataset.k === 'blank' ? blank() : sample(); render(); toast(el.dataset.k === 'blank' ? 'Fresh start' : 'Example loaded'); },
+};
+function dreamForm(d) {
+  modal(`<h2>${d ? 'Edit dream' : 'A new dream'}</h2><div class="formgrid">
+    <label class="f" for="dr-name" style="grid-column:1/-1">What is it <input id="dr-name" type="text" value="${esc(d?.name || '')}" placeholder="Our first trip to Japan"></label>
+    <label class="f" for="dr-target">Costs <input id="dr-target" type="number" min="0" value="${d?.target || ''}"></label>
+    <label class="f" for="dr-saved">Saved so far <input id="dr-saved" type="number" min="0" value="${d?.saved || 0}"></label>
+    <label class="f" for="dr-ca">${P('a')} / month <input id="dr-ca" type="number" min="0" value="${d?.ca || 0}"></label>
+    <label class="f" for="dr-cb">${P('b')} / month <input id="dr-cb" type="number" min="0" value="${d?.cb || 0}"></label></div>
+    <p id="dr-err" style="color:var(--bad)" hidden>Give it a name and a cost.</p>
+    <div class="row between"><div class="row"><button class="btn" data-act="savedream" data-id="${d?.id || ''}">Save</button><button class="btn ghost" data-act="cancel">Cancel</button></div>
+    ${d ? `<button class="btn small danger" data-act="deldream" data-id="${d.id}">Remove</button>` : ''}</div>`);
+}
+
+document.addEventListener('click', e => {
+  const go = e.target.closest('[data-go]'); if (go) { location.hash = go.dataset.go; return; }
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  if (el.type === 'checkbox') return; // handled on change
+  const f = A[el.dataset.act]; if (f) f(el, e);
+});
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (el.dataset.act === 'storm') return A.storm(el);
+  if (el.dataset.rate) { S.rates[el.dataset.rate] = +el.value || 0; return render(); }
+  if (el.dataset.set) {
+    let v = el.dataset.bool !== undefined ? el.checked : el.dataset.num !== undefined ? (+el.value || 0) : el.value;
+    if (el.dataset.set === 'anniversary' && !v) return;
+    setPath(el.dataset.set, v); S.sample = false; render();
+  }
+});
+document.addEventListener('input', e => {
+  const el = e.target, live = el.dataset.live; if (!live) return;
+  if (live === 'labor') { S.fairness.labor = +el.value; $('#f-labor-v').textContent = el.value + '%'; fairOut(); renderShell(); save(); }
+  if (live === 'custom') { S.fairness.custom = +el.value; $('#f-custom-v').textContent = el.value + '%'; fairOut(); save(); }
+  if (live === 'score') $('#b-score-v').textContent = el.value;
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#modal').innerHTML) closeModal(); });
+window.addEventListener('hashchange', () => { const t = location.hash.slice(1); if (TABS.some(x => x[0] === t)) { tab = t; render(); window.scrollTo({top: 0}); } });
+render();
+})();
+</script>

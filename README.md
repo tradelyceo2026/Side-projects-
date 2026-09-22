@@ -7,4 +7,5 @@ Experiments that have nothing to do with the day job.
 | [ozark-orbital](ozark-orbital/) | A real-physics rocket and orbital-mechanics game in one HTML file. Launch from the Ozarks, reach orbit, fly to the Moon. |
 | [sawyer](sawyer/) | An open-source browser video editor: multi-track timeline, effects with keyframes, transitions, audio mixing, real MP4/WebM export, and an AI editing assistant. |
 | [xmen-mh](xmen-mh/) | An open-world X-Men action game set in Mountain Home, Arkansas, built from real OpenStreetMap data. Browser, Three.js, one file, ten agents. |
+| [ours](ours/) | A couples budgeting app built around fairness, privacy and desire: a four-way fairness dial, sealed-bid purchases, private comfort lines, invisible-work credit, and a weekly money date. |
 | [tesla-intent](tesla-intent/) | A design concept and working prototype for a Tesla Model Y in-car assistant that knows its own limits, asks before it spends, and remembers what you meant. |
