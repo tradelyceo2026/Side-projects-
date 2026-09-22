@@ -3,10 +3,10 @@
 
 For each grid (far, near, inset):
   <grid>.jpg      aerial imagery, one texel per i_res metres
-  <grid>_h.bin    terrain height, uint16 (1/32 m), row-delta coded, zlib
-  <grid>_w.bin    water surface height, same encoding
-  <grid>_lc.bin   land cover, 2 x uint8 per texel at the height grid x2: R = water signed distance, G = forest density
-plus world.json (grids, runways, lakes, towns, dams, rivers) and buildings.bin.
+  <grid>_h.png    terrain height, 16-bit greyscale PNG, value = metres x 32
+  <grid>_w.png    water surface height, same encoding
+  <grid>_lc.png   8-bit greyscale PNG: signed distance to the shoreline (128 = shore, lower = water)
+plus world.json (grids, runways, lakes, towns, dams, rivers) and buildings.json.
 
 Requires: numpy, scipy, pillow.
 """
@@ -303,22 +303,18 @@ def flatten_colour(rgb, g, ires, sdf, lres, sigma_m=700.0):
 
 
 # ---------------------------------------------------------------- encoding
-def pack_u16(arr):
-    q = np.clip(np.round(arr * H_UNIT), 0, 65535).astype(np.int32)
-    d = np.diff(q, axis=1, prepend=0)                      # row delta
-    d = (d & 0xFFFF).astype('<u2')
-    return zlib.compress(d.tobytes(), 9)
-
-
-def pack_u8(arr):
-    return zlib.compress(np.ascontiguousarray(arr, np.uint8).tobytes(), 9)
-
-
-def write(name, data):
+def png16(name, arr):
+    """Heights as a 16-bit greyscale PNG, value = metres * H_UNIT (opens in Blender, QGIS, any image tool)."""
+    q = np.clip(np.round(arr * H_UNIT), 0, 65535).astype(np.uint16)
     p = os.path.join(OUT, name)
-    with open(p, 'wb') as f:
-        f.write(data)
-    print(f'    {name}: {len(data) / 1024:.0f} KB')
+    Image.fromarray(q, mode='I;16').save(p, optimize=True, compress_level=9)
+    print(f'    {name}: {os.path.getsize(p) / 1024:.0f} KB')
+
+
+def png8(name, arr):
+    p = os.path.join(OUT, name)
+    Image.fromarray(np.ascontiguousarray(arr, np.uint8), mode='L').save(p, optimize=True, compress_level=9)
+    print(f'    {name}: {os.path.getsize(p) / 1024:.0f} KB')
 
 
 # ---------------------------------------------------------------- runways
@@ -516,8 +512,8 @@ def main():
         # ---- runways
         flatten_runways(H, g, hres, runways)
 
-        write(f'{name}_h.bin', pack_u16(H))
-        write(f'{name}_w.bin', pack_u16(Wl))
+        png16(f'{name}_h.png', H)
+        png16(f'{name}_w.png', Wl)
 
         # ---- imagery
         irng = tile_range(g, g['img_zoom'])
@@ -533,7 +529,7 @@ def main():
         # ---- land cover: water signed distance only (forest is classified from the imagery in the shader)
         sdf_u8 = np.clip(np.round(128 + sdf / SDF_SCALE[name]), 0, 255).astype(np.uint8)
         lc = sdf_u8
-        write(f'{name}_lc.bin', pack_u8(lc))
+        png8(f'{name}_lc.png', lc)
         Image.fromarray(sdf_u8).save(os.path.join(CACHE, f'debug_{name}_lc.png'))
         hv = (H - H.min()) / (H.max() - H.min()) * 255
         Image.fromarray(hv.astype(np.uint8)).save(os.path.join(CACHE, f'debug_{name}_h.png'))
@@ -566,16 +562,16 @@ def main():
             if kind in ('church',):
                 h = 11.0
         blds.append((cx, cz, h, [(p[0] - cx, p[1] - cz) for p in pts], kind))
-    buf = bytearray(np.array([len(blds)], '<u4').tobytes())
     kinds = ['house', 'residential', 'detached', 'garage', 'shed', 'commercial', 'retail', 'industrial', 'warehouse',
              'hangar', 'church', 'school', 'hospital', 'apartments', 'yes']
+    out = []
     for cx, cz, h, rel, kind in blds:
-        rel = rel[:250]
         k = kinds.index(kind) if kind in kinds else len(kinds) - 1
-        buf += np.array([round(cx * 10), round(cz * 10)], '<i4').tobytes()
-        buf += np.array([k, min(255, round(h * 4)), len(rel)], '<u1').tobytes()
-        buf += np.array([v for p in rel for v in (round(p[0] * 2), round(p[1] * 2))], '<i2').tobytes()
-    write('buildings.bin', zlib.compress(bytes(buf), 9))
+        # [x, z, height, kind, dx0, dz0, dx1, dz1, ...] with offsets in 0.5 m units
+        out.append([round(cx, 1), round(cz, 1), round(h, 1), k] + [int(round(v * 2)) for pt in rel[:250] for v in pt])
+    with open(os.path.join(OUT, 'buildings.json'), 'w') as f:
+        json.dump({'kinds': kinds, 'buildings': out}, f, separators=(',', ':'))
+    print(f"    buildings.json: {os.path.getsize(os.path.join(OUT, 'buildings.json')) / 1024:.0f} KB")
     print(f'  buildings kept: {len(blds)}')
 
     # ---- map vectors (simplified) and metadata

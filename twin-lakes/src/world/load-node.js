@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
-import { Terrain, decodeHeights, GRID_ORDER } from './terrain.js';
+import { Terrain, GRID_ORDER } from './terrain.js';
+import { parsePNG, unfilterPNG, heightsFromU16 } from './png.js';
 
 const DATA = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'data');
 
@@ -12,12 +13,16 @@ export function loadTerrain() {
   const arrays = {};
   for (const name of GRID_ORDER) {
     const m = world.grids[name];
-    const raw = (k) => new Uint8Array(zlib.inflateSync(fs.readFileSync(path.join(DATA, `${name}_${k}.bin`))));
-    arrays[name] = {
-      H: decodeHeights(raw('h'), m.hn[0], m.hn[1], world.h_unit),
-      W: decodeHeights(raw('w'), m.hn[0], m.hn[1], world.h_unit),
-      L: raw('lc'),
+    const png = (k) => {
+      const info = parsePNG(new Uint8Array(fs.readFileSync(path.join(DATA, `${name}_${k}.png`))));
+      return unfilterPNG(info, new Uint8Array(zlib.inflateSync(info.idat)));
     };
+    arrays[name] = {
+      H: heightsFromU16(png('h'), world.h_unit),
+      W: heightsFromU16(png('w'), world.h_unit),
+      L: png('lc'),
+    };
+    void m;
   }
   return new Terrain(world, arrays);
 }

@@ -69,7 +69,7 @@ export const C172 = {
   hardPoints: [
     { name: 'left wingtip', pos: [-5.45, 0.95, 0.2] },
     { name: 'right wingtip', pos: [5.45, 0.95, 0.2] },
-    { name: 'tail', pos: [0, -0.55, 4.9] },
+    { name: 'tail', pos: [0, 0.05, 4.9] },          // tie-down ring: strikes near 14° nose up on the mains
     { name: 'propeller', pos: [0, -0.82, -2.2] },
     { name: 'belly', pos: [0, -0.78, -0.2] },
   ],

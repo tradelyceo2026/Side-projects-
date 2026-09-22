@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Twin Lakes Flight</title>
+<style>
+  :root {
+    --ink: #eef1f4; --muted: #9aa6b2; --glass: rgba(10, 14, 20, 0.72); --line: rgba(255,255,255,0.12);
+    --accent: #f2b544; --accent2: #3fc1c9; --good: #3ecf6e; --warn: #ffb020; --bad: #ff4d4d;
+  }
+  html, body { margin: 0; height: 100%; background: #06080b; color: var(--ink); overflow: hidden;
+    font: 14px/1.45 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { background: #06080b; }
+  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .hidden { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+
+  /* loading */
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 60%, #14202b, #05070a 70%); z-index: 50; }
+  #loading .box { width: min(420px, 86vw); text-align: center; }
+  #loading h1 { font: 700 34px/1.1 "Inter", system-ui, sans-serif; letter-spacing: 0.18em; margin: 0 0 6px; }
+  #loading p { color: var(--muted); margin: 0 0 22px; }
+  .bar { height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+  .bar > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent2), var(--accent)); transition: width 0.2s; }
+  #loadMsg { margin-top: 10px; color: var(--muted); font-size: 12px; min-height: 18px; }
+
+  /* menu */
+  #menu { position: fixed; inset: 0; z-index: 40; display: flex; align-items: stretch; pointer-events: none; }
+  #menu .panel { pointer-events: auto; width: min(560px, 100vw); box-sizing: border-box; padding: 34px 34px 26px; overflow-y: auto;
+    background: linear-gradient(90deg, rgba(5,8,12,0.92) 0%, rgba(5,8,12,0.84) 75%, rgba(5,8,12,0) 100%); }
+  #menu h1 { margin: 0; font: 800 44px/1 "Inter", system-ui, sans-serif; letter-spacing: 0.14em; }
+  #menu .sub { color: var(--accent); letter-spacing: 0.22em; font-size: 12px; font-weight: 700; margin: 8px 0 6px; text-transform: uppercase; }
+  #menu .lede { color: #c9d2da; margin: 12px 0 22px; max-width: 460px; }
+  .scen { display: grid; gap: 8px; margin-bottom: 20px; }
+  .scen button { text-align: left; background: rgba(255,255,255,0.045); border: 1px solid var(--line); border-radius: 10px; padding: 11px 14px; transition: background .15s, border-color .15s; }
+  .scen button:hover { background: rgba(255,255,255,0.09); }
+  .scen button.sel { border-color: var(--accent); background: rgba(242,181,68,0.12); }
+  .scen b { display: block; font-size: 15px; }
+  .scen span { color: var(--muted); font-size: 12.5px; }
+  .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin-bottom: 18px; }
+  .opts label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+  .opts select { background: #10161d; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px; font: inherit; }
+  .checks { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; color: #c9d2da; font-size: 13px; }
+  .go { width: 100%; padding: 14px; border: 0; border-radius: 10px; background: var(--accent); color: #1a1204; font-weight: 800; font-size: 16px; letter-spacing: 0.08em; }
+  .go:hover { filter: brightness(1.08); }
+  .fine { color: #6f7b86; font-size: 11.5px; margin-top: 16px; }
+  .fine a { color: #9fb3c4; }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; font-size: 12.5px; margin: 6px 0 0; }
+  .keys kbd { font: 600 11.5px ui-monospace, monospace; color: var(--accent); white-space: nowrap; }
+  details summary { cursor: pointer; color: #c9d2da; margin-bottom: 6px; }
+
+  /* HUD */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+  #status { position: absolute; left: 14px; top: 12px; background: var(--glass); border: 1px solid var(--line); border-radius: 10px; padding: 9px 13px; max-width: min(420px, 60vw); backdrop-filter: blur(6px); }
+  #status .t { font-weight: 700; }
+  #status .o { color: var(--muted); font-size: 12.5px; }
+  #camLabel { position: absolute; right: 14px; top: 12px; background: var(--glass); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 12px; color: #c9d2da; }
+  #pfdWrap { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); width: min(640px, 64vw, 150vh); border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 8px 30px rgba(0,0,0,0.45); pointer-events: auto; }
+  #pfdWrap canvas { width: 100%; display: block; }
+  #apbar { position: absolute; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; pointer-events: auto; }
+  #apbar button { background: rgba(8,12,16,0.8); border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; font: 700 11.5px ui-monospace, monospace; color: #cfd8e0; }
+  #apbar button.on { color: #1a1204; background: var(--good); border-color: var(--good); }
+  #msgs { position: absolute; left: 50%; top: 70px; transform: translateX(-50%); display: grid; gap: 6px; justify-items: center; width: min(640px, 70vw); }
+  .msg { background: var(--glass); border: 1px solid var(--line); border-radius: 999px; padding: 7px 16px; font-weight: 600; font-size: 13.5px; text-align: center; animation: fadein .25s; }
+  .msg.warn { border-color: var(--warn); color: #ffd48a; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(-6px); } }
+  #card { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 30; width: min(440px, 90vw); background: rgba(8,11,15,0.93); border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+  #card h2 { margin: 0 0 4px; font-size: 22px; }
+  #card .grade { font: 800 64px/1 "Inter", system-ui, sans-serif; float: right; margin-left: 12px; }
+  #card table { width: 100%; border-collapse: collapse; margin: 12px 0 16px; font-size: 13.5px; }
+  #card td { padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  #card td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  #card .row { display: flex; gap: 8px; }
+  #card .row button { flex: 1; padding: 11px; border-radius: 9px; border: 1px solid var(--line); background: rgba(255,255,255,0.06); font-weight: 700; }
+  #card .row button.primary { background: var(--accent); color: #1a1204; border: 0; }
+  #paused { position: fixed; inset: 0; display: grid; place-items: center; z-index: 25; background: rgba(0,0,0,0.35); font: 800 28px/1 "Inter", system-ui; letter-spacing: 0.3em; pointer-events: none; }
+  #gateHint { position: absolute; left: 14px; top: 86px; background: var(--glass); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 12.5px; }
+
+  /* touch */
+  .touch-stick { position: fixed; left: 22px; bottom: 22px; width: 130px; height: 130px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.25); z-index: 12; pointer-events: auto; touch-action: none; }
+  .touch-stick .knob { position: absolute; left: 45px; top: 45px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.55); }
+  .touch-throttle { position: fixed; right: 22px; bottom: 22px; width: 54px; height: 170px; border-radius: 12px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.25); z-index: 12; overflow: hidden; pointer-events: auto; touch-action: none; }
+  .touch-throttle .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: rgba(242,181,68,0.55); }
+  .touch-throttle span { position: absolute; top: 6px; width: 100%; text-align: center; font-size: 11px; font-weight: 700; }
+  .touch-buttons { position: fixed; right: 88px; bottom: 22px; display: grid; gap: 8px; z-index: 12; pointer-events: auto; }
+  .touch-buttons button { background: rgba(8,12,16,0.75); border: 1px solid rgba(255,255,255,0.25); border-radius: 8px; padding: 9px 10px; font-weight: 700; font-size: 12px; }
+  @media (max-width: 720px) {
+    #menu .panel { padding: 22px 16px; background: rgba(5,8,12,0.9); }
+    #menu h1 { font-size: 34px; }
+    .opts { grid-template-columns: 1fr; }
+    #pfdWrap { width: 96vw; bottom: auto; top: 58px; }
+    #status { max-width: 70vw; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="loading"><div class="box">
+  <h1>TWIN LAKES</h1>
+  <p>Building the Ozarks from USGS elevation, imagery and OpenStreetMap…</p>
+  <div class="bar"><div id="loadBar"></div></div>
+  <div id="loadMsg"></div>
+</div></div>
+<div id="hud" class="hidden">
+  <div id="status"><div class="t"></div><div class="o"></div></div>
+  <div id="gateHint" class="hidden"></div>
+  <div id="camLabel"></div>
+  <div id="msgs"></div>
+  <div id="apbar"></div>
+  <div id="pfdWrap"></div>
+</div>
+<div id="menu" class="hidden"><div class="panel"></div></div>
+<div id="card" class="hidden"></div>
+<div id="paused" class="hidden">PAUSED</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

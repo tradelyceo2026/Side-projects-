@@ -12,21 +12,6 @@ export function smoothstep(a, b, x) {
   return t * t * (3 - 2 * t);
 }
 
-/** Undo the row-delta uint16 coding written by scripts/process_data.py. */
-export function decodeHeights(bytes, nx, ny, unit) {
-  const u16 = new Uint16Array(bytes.buffer, bytes.byteOffset, nx * ny);
-  const out = new Float32Array(nx * ny);
-  for (let y = 0; y < ny; y++) {
-    let acc = 0;
-    const o = y * nx;
-    for (let x = 0; x < nx; x++) {
-      acc = (acc + u16[o + x]) & 0xffff;
-      out[o + x] = acc / unit;
-    }
-  }
-  return out;
-}
-
 export class Projection {
   constructor(origin) { Object.assign(this, origin); }
   toLocal(lat, lon) { return [(lon - this.lon) * this.kx, -(lat - this.lat) * this.kz]; }
