@@ -412,7 +412,10 @@ def main():
 
     lake_levels = {}
     meta_grids = {}
+    only = os.environ.get('ONLY', '').split(',') if os.environ.get('ONLY') else None
     for name in ('near', 'far', 'inset'):
+        if only and name not in only:
+            continue
         g = GRIDS[name]
         print(f'grid {name}')
         hres, ires, lres = g['h_res'], g['i_res'], LC_RES[name]
@@ -422,6 +425,12 @@ def main():
         dem = rgb[..., 0] * 256 + rgb[..., 1] + rgb[..., 2] / 256 - 32768
         lat, lon, X, Z = grid_latlon(g, hres)
         H = resample(dem, lat, lon, g['dem_zoom'], rng).astype(np.float64)
+        # despike: a few source tiles carry bogus samples (hundreds of metres off); Ozark relief is gentler
+        med = ndimage.median_filter(H, size=5)
+        spikes = np.abs(H - med) > 120
+        H[spikes] = med[spikes]
+        if spikes.any():
+            print(f'    despiked {int(spikes.sum())} samples')
 
         # ---- water masks at the land-cover resolution (supersampled x2), reduced to height res too
         ss = 2
@@ -439,32 +448,55 @@ def main():
         lab, nlab = ndimage.label(lake_h | pond_h)
         if nlab:
             idx = np.arange(1, nlab + 1)
+            # shoreline ring: the land cells touching each water body (the DEM under water is not trusted)
+            ring_lab = ndimage.grey_dilation(lab, size=3)
+            ring_lab = np.where(water_h, 0, ring_lab)
+            ring_lvl = np.array([np.nan] * nlab)
+            if ring_lab.any():
+                vals = ndimage.labeled_comprehension(H, ring_lab, idx, lambda v: np.percentile(v, 15), float, np.nan)
+                ring_lvl = np.asarray(vals)
             er = ndimage.binary_erosion(lake_h | pond_h)
-            med_er = ndimage.median(H, np.where(er, lab, 0), idx)
-            med_all = ndimage.median(H, lab, idx)
-            lvl = np.where(np.isnan(med_er), med_all, med_er)
+            flat_lvl = np.asarray(ndimage.median(H, np.where(er, lab, 0), idx), float)
             sizes = ndimage.sum(np.ones_like(H), lab, idx)
-            # big lakes: take the level measured on the near grid for consistency on every grid
-            for i, s in zip(idx, sizes):
+            for i, sz in zip(idx, sizes):
                 cells = lab == i
                 is_lake = lake_h[cells].mean() > 0.5
-                if is_lake and s * hres * hres > 2e6:
-                    cx, cz = X[cells].mean(), Z[cells].mean()
+                big = is_lake and sz * hres * hres > 2e6
+                if big:
+                    cx = X[cells].mean()
                     key = 'norfork' if cx > -3000 else 'bull_shoals'
-                    if name == 'near':
-                        lake_levels.setdefault(key, float(lvl[i - 1]))
-                    Wl[cells] = lake_levels.get(key, lvl[i - 1])
+                    if name == 'near' and key not in lake_levels:
+                        lake_levels[key] = float(flat_lvl[i - 1])
+                    lvl = lake_levels.get(key, flat_lvl[i - 1])
                 else:
-                    Wl[cells] = lvl[i - 1]
+                    lvl = ring_lvl[i - 1] - 0.5
+                    if name != 'far' and not np.isnan(flat_lvl[i - 1]) and abs(flat_lvl[i - 1] - lvl) < 4:
+                        lvl = flat_lvl[i - 1]
+                if np.isnan(lvl):
+                    lvl = np.nanmedian(H[cells])
+                Wl[cells] = lvl
         if river_h.any():
-            # smoothed DEM along the river (lower envelope so banks do not lift it)
-            rv = np.where(river_h, H, np.nan)
-            rv_min = ndimage.minimum_filter(np.nan_to_num(rv, nan=1e4), size=3)
-            rv_min = np.where(river_h, np.minimum(rv_min, H), 0)
             sig = 400.0 / hres
-            num = ndimage.gaussian_filter(rv_min, sig)
-            den = ndimage.gaussian_filter(river_h.astype(np.float64), sig)
-            Wl[river_h] = (num / np.maximum(den, 1e-6))[river_h]
+            if name == 'far':
+                # coarse DEM is unreliable on water: use the banks, lower envelope
+                bank = ndimage.binary_dilation(river_h, iterations=1) & ~water_h
+                src = np.where(bank, H, 1e4)
+                src = ndimage.minimum_filter(src, size=3)
+                mask = (src < 1e4) & (ndimage.binary_dilation(river_h, iterations=2))
+                num = ndimage.gaussian_filter(np.where(mask, src, 0), sig)
+                den = ndimage.gaussian_filter(mask.astype(np.float64), sig)
+                rw = np.where(den > 0.05, num / np.maximum(den, 1e-6) - 2.0, np.nan)
+                Wl[river_h] = rw[river_h]
+            else:
+                # smoothed DEM along the river (lower envelope so banks do not lift it)
+                rv = np.where(river_h, H, np.nan)
+                rv_min = ndimage.minimum_filter(np.nan_to_num(rv, nan=1e4), size=3)
+                rv_min = np.where(river_h, np.minimum(rv_min, H), 0)
+                num = ndimage.gaussian_filter(rv_min, sig)
+                den = ndimage.gaussian_filter(river_h.astype(np.float64), sig)
+                Wl[river_h] = (num / np.maximum(den, 1e-6))[river_h]
+        dbg = lambda tag, a: os.environ.get('DEBUG') and print('   ', tag, np.nanmin(a), np.nanmax(a), np.isnan(a).sum())
+        dbg('Wl before fill', Wl)
         # nearest-fill so the water surface is defined past the shore
         have = ~np.isnan(Wl)
         if have.any():
@@ -477,7 +509,9 @@ def main():
         dist_in = ndimage.distance_transform_edt(water_h) * hres
         maxd = np.where(lake_h, 55.0, np.where(river_h, 5.0, 4.0))
         depth = np.minimum(maxd, 1.0 + 0.09 * dist_in)
-        H = np.where(water_h, np.minimum(H, Wl - depth), H)
+        H = np.where(water_h, Wl - depth, H)
+        assert np.isfinite(H).all() and np.isfinite(Wl).all(), name
+        print(f'    heights {H.min():.1f}..{H.max():.1f} m, water {Wl.min():.1f}..{Wl.max():.1f} m')
 
         # ---- runways
         flatten_runways(H, g, hres, runways)

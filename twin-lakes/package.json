@@ -1,0 +1,14 @@
+{
+  "name": "twin-lakes",
+  "version": "0.1.0",
+  "description": "A real-terrain Cessna 172 flight simulator over the Twin Lakes of north Arkansas: USGS elevation and imagery, OpenStreetMap lakes and runways, 6-DOF flight dynamics.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "build": "node scripts/build.mjs",
+    "headless": "node scripts/headless.mjs",
+    "data": "python3 scripts/fetch_data.py && python3 scripts/process_data.py",
+    "serve": "python3 -m http.server 8084"
+  }
+}
